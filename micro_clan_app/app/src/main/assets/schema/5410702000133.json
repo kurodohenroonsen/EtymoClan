@@ -1,0 +1,79 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "identifier": "urn:icd:0160:5410702000133",
+  "name": "Moinette Blonde",
+  "description": "Bière belge de tradition de fermentation haute, refermentée en bouteille. Robe blonde dorée, arômes de houblon fin avec une amertume équilibrée et une texture veloutée.",
+  "category": "Beverages / Beer",
+  "model": "Moinette Blonde 33cl",
+  "productionDate": "2026-05-10",
+  "manufacturer": {
+    "@type": "Organization",
+    "name": "Brasserie Dupont"
+  },
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Type de bière",
+      "value": "Belgian Strong Golden Ale"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Degré d'alcool",
+      "value": "8.5% ABV"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Volume",
+      "value": "33 cl"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Lot de production",
+      "value": "L26130B1"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Date de durabilité minimale",
+      "value": "2028-05-10"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Ingrédients",
+      "value": "Eau, malt d'orge, sucres, levure, houblons"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Température de service",
+      "value": "12°C"
+    }
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "1.85",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "LocalBusiness",
+      "name": "Delhaize Supermarché"
+    }
+  },
+  "purchaseAction": {
+    "@type": "PurchaseAction",
+    "agent": {
+      "@type": "Person",
+      "name": "Acheteur"
+    },
+    "object": {
+      "@type": "Product",
+      "name": "Moinette Blonde"
+    },
+    "price": "1.85",
+    "priceCurrency": "EUR",
+    "startTime": "2026-06-16T11:50:00+02:00",
+    "location": {
+      "@type": "Place",
+      "name": "Delhaize Ath"
+    }
+  }
+}

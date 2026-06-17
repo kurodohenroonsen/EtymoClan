@@ -1,0 +1,89 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "identifier": "urn:icd:0160:1111111111111",
+  "name": "Terreau de Sarcomusation",
+  "description": "Terreau biologique enrichi issu du procédé de sarcomusation par les larves de mouche soldat noire (Hermetia illucens). Il est caractérisé par un apport variable de NPK riche en azote organique, une forte présence de chitine issue des exuvies larvaires (activateur d'immunité végétale ISR), et une riche flore microbienne bénéfique dont Bacillus velezensis, offrant une suppression naturelle des champignons du sol (Fusarium, Pythium, Rhizoctonia) et renforçant la défense contre le mildiou.",
+  "category": "Fertilizer",
+  "model": "Sarcomusation Premium Active",
+  "productionDate": "2026-06-15",
+  "manufacturer": {
+    "@type": "Organization",
+    "name": "Micro Clan BioTech Inc."
+  },
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Processus Biologique",
+      "value": "Sarcomusation active par Hermetia illucens"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Lot de production",
+      "value": "Lot-MS-2026-42"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Matière Organique",
+      "value": "68% (matière sèche)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Ratio Carbone/Azote (C/N)",
+      "value": "13.5 (optimal pour l'assimilation)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Teneur en Azote Total (N)",
+      "value": "2.8% (libération progressive)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Richesse en Chitine",
+      "value": "Haute concentration (exuvies de mues larvaires)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Éliciteur Immunitaire",
+      "value": "Induction de la Résistance Systémique Induite (ISR) contre le mildiou"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Activité Microbienne",
+      "value": "Haute densité de Bacillus velezensis et bactéries aérobies bénéfiques"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Propriétés Antifongiques",
+      "value": "Inhibition du mycelium de Fusarium oxysporum, Pythium et Rhizoctonia"
+    }
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "14.99",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "LocalBusiness",
+      "name": "Pépinière de la Sarcomusation"
+    }
+  },
+  "purchaseAction": {
+    "@type": "PurchaseAction",
+    "agent": {
+      "@type": "Person",
+      "name": "Acheteur Micro Clan"
+    },
+    "object": {
+      "@type": "Product",
+      "name": "Terreau de Sarcomusation"
+    },
+    "price": "14.99",
+    "priceCurrency": "EUR",
+    "startTime": "2026-06-15T19:30:00Z",
+    "location": {
+      "@type": "Place",
+      "name": "Boutique Officielle Micro Clan"
+    }
+  }
+}

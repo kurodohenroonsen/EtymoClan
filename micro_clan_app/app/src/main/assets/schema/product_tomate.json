@@ -1,0 +1,89 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "identifier": "urn:icd:0160:2222222222222",
+  "name": "Tomate Cerise Organique",
+  "description": "Graines biologiques de tomate cerise (Lycopersicon esculentum) à haut rendement, idéales pour la culture en pot avec terreau de sarcomusation. Elle bénéficie d'une association symbiotique étroite avec le Basilic Grand Vert, qui masque son odeur pour la protéger des pucerons et des aleurodes. Elle est cependant vulnérable au mildiou (Phytophthora infestans) sous conditions chaudes et humides, nécessitant un espacement de 50 à 80 cm, un arrosage strict au pied et un abri contre les pluies directes.",
+  "category": "Seeds / Plants",
+  "model": "Lycopersicon esculentum",
+  "productionDate": "2026-05-20",
+  "manufacturer": {
+    "@type": "Organization",
+    "name": "Semences du Clan"
+  },
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Variété",
+      "value": "Tomate Cerise Rouge"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Lot de production",
+      "value": "Lot-T-2026-07"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "pH du Sol Idéal",
+      "value": "6.2 - 6.8"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Température de Germination",
+      "value": "20°C - 25°C"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Compagnon Idéal",
+      "value": "Ocimum basilicum (Basilic Grand Vert)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Effet Compagnonnage",
+      "value": "Masquage olfactif contre les aleurodes et pucerons, pollinisation accrue"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Espacement Recommandé",
+      "value": "50 à 80 cm (circulation d'air optimale anti-mildiou)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Type d'Arrosage",
+      "value": "Arrosage direct au pied uniquement (ne jamais mouiller les feuilles)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Sensibilité Cryptogamique",
+      "value": "Mildiou de la tomate (Phytophthora infestans) favorisé par humidité stagnante"
+    }
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "3.50",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "LocalBusiness",
+      "name": "Pépinière du Sud"
+    }
+  },
+  "purchaseAction": {
+    "@type": "PurchaseAction",
+    "agent": {
+      "@type": "Person",
+      "name": "Acheteur Micro Clan"
+    },
+    "object": {
+      "@type": "Product",
+      "name": "Tomate Cerise Organique"
+    },
+    "price": "3.50",
+    "priceCurrency": "EUR",
+    "startTime": "2026-06-15T19:35:00Z",
+    "location": {
+      "@type": "Place",
+      "name": "Boutique Officielle Micro Clan"
+    }
+  }
+}

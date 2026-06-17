@@ -1,0 +1,74 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "identifier": "urn:icd:0160:4444444444444",
+  "name": "Ruche de Symbiose Active",
+  "description": "Ruche connectée abritant une colonie d'abeilles mellifères (Apis mellifera) dirigée par sa reine. Elle s'intègre au Micro Clan en assurant la pollinisation des fleurs de Tomate Cerise (pollinisation croisée) et en récoltant le précieux nectar du Basilic Grand Vert pour concevoir un miel monofloral ou polyfloral unique. La reine régule la ponte et la cohésion de la colonie grâce à ses phéromones de cour, tandis que les butineuses tracent chaque fleur visitée pour certifier l'origine sémantique du miel.",
+  "category": "Beekeeping / Symbiosis",
+  "model": "Apis mellifera colony",
+  "productionDate": "2026-06-16",
+  "manufacturer": {
+    "@type": "Organization",
+    "name": "Réseau Apicole du Clan"
+  },
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Souche d'Abeilles",
+      "value": "Apis mellifera mellifera (Abeille noire locale)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Statut de la Reine",
+      "value": "Active & Féconde (Ponte de 1500 œufs/jour, phéromone royale stable)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Humidité du Miel",
+      "value": "17.2% (Taux optimal sous opercule)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Rayon d'action",
+      "value": "Butinage prioritaire sur les membres du Clan (Basilic et Tomate)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Bénéfice Symbiotique",
+      "value": "Taux de fructification de la Tomate accru par pollinisation croisée"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Température du Couvain",
+      "value": "Maintenue à 35.2°C par régulation thermique collective"
+    }
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "85.00",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "LocalBusiness",
+      "name": "Apiculteur du Clan"
+    }
+  },
+  "purchaseAction": {
+    "@type": "PurchaseAction",
+    "agent": {
+      "@type": "Person",
+      "name": "Acheteur Micro Clan"
+    },
+    "object": {
+      "@type": "Product",
+      "name": "Ruche de Symbiose Active"
+    },
+    "price": "85.00",
+    "priceCurrency": "EUR",
+    "startTime": "2026-06-16T00:10:00Z",
+    "location": {
+      "@type": "Place",
+      "name": "Boutique Officielle Micro Clan"
+    }
+  }
+}

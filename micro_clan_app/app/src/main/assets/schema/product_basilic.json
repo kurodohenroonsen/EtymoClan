@@ -1,0 +1,79 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "identifier": "urn:icd:0160:3333333333333",
+  "name": "Basilic Grand Vert",
+  "description": "Graines de Basilic Grand Vert (Ocimum basilicum) aromatique et vigoureux. Partenaire symbiotique parfait de la tomate cerise. Ses huiles essentielles masquent les signaux chimiques de la tomate pour repousser les nuisibles (pucerons, aleurodes), tandis que ses fleurs mellifères attirent les pollinisateurs indispensables (abeilles, syrphes). Il préfère le plein soleil mais bénéficie de la mi-ombre fournie par le feuillage de la tomate, avec un sol humide et bien drainé.",
+  "category": "Seeds / Plants",
+  "model": "Ocimum basilicum",
+  "productionDate": "2026-06-01",
+  "manufacturer": {
+    "@type": "Organization",
+    "name": "Semences du Clan"
+  },
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "Variété",
+      "value": "Basilic Grand Vert"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Lot de production",
+      "value": "Lot-B-2026-09"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Exposition",
+      "value": "Plein soleil (bénéficie de l'ombrage partiel de la tomate aux heures chaudes)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Besoin en Eau",
+      "value": "Élevé (sol maintenu humide mais sans excès)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Huiles Essentielles Répulsives",
+      "value": "Richesse en linalol et estragol (action répulsive contre aleurodes et pucerons)"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Attrait Écologique",
+      "value": "Fleurs hautement mellifères attirant abeilles et syrphes"
+    },
+    {
+      "@type": "PropertyValue",
+      "name": "Température de Croissance",
+      "value": "Idéale entre 18°C et 28°C (craint le gel et les nuits froides)"
+    }
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "2.90",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "seller": {
+      "@type": "LocalBusiness",
+      "name": "Serre Organique"
+    }
+  },
+  "purchaseAction": {
+    "@type": "PurchaseAction",
+    "agent": {
+      "@type": "Person",
+      "name": "Acheteur Micro Clan"
+    },
+    "object": {
+      "@type": "Product",
+      "name": "Basilic Grand Vert"
+    },
+    "price": "2.90",
+    "priceCurrency": "EUR",
+    "startTime": "2026-06-15T19:40:00Z",
+    "location": {
+      "@type": "Place",
+      "name": "Boutique Officielle Micro Clan"
+    }
+  }
+}
