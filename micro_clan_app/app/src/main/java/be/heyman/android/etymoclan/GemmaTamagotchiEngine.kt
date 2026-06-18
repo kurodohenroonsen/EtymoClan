@@ -129,7 +129,8 @@ data class ClanMember(
     val level: Int = 0,
     val avatarPath: String = "",
     val avatarPathMediaPipe: String = "",
-    val gs1Class: String = ""
+    val gs1Class: String = "",
+    val nfcPayload: String = ""
 )
 
 class GemmaTamagotchiEngine(private val context: Context) {
@@ -640,7 +641,8 @@ class GemmaTamagotchiEngine(private val context: Context) {
             publicKey = keyPair.public,
             privateKey = keyPair.private,
             pollens = pollensList,
-            gs1Class = gs1Class
+            gs1Class = gs1Class,
+            nfcPayload = payload
         )
 
         Log.i(TAG, "Nouveau membre créé : $type, Origine : $origin")
@@ -1693,7 +1695,7 @@ class GemmaTamagotchiEngine(private val context: Context) {
 
         val quest = be.heyman.android.etymoclan.agentcore.KnowledgeQuest(repo, hooks)
         val exclude = failedPredicatesByMember[memberId] ?: emptySet()
-        return when (val r = quest.fillNextSlot(member.iu, member.did, privateKey, frame, member.type, exclude)) {
+        return when (val r = quest.fillNextSlot(member.iu, member.did, privateKey, frame, member.type, exclude, member.nfcPayload)) {
             is be.heyman.android.etymoclan.agentcore.KnowledgeQuest.Result.Filled -> {
                 val currentMember = _clanMembers.value.find { it.id == memberId } ?: member
                 val updatedPollens = currentMember.pollens.toMutableList().apply { add(r.pollen) }
@@ -1748,7 +1750,7 @@ class GemmaTamagotchiEngine(private val context: Context) {
         }
 
         val quest = be.heyman.android.etymoclan.agentcore.KnowledgeQuest(repo, hooks)
-        return when (val r = quest.fillSpecificSlot(member.iu, member.did, privateKey, frame, member.type, predicate)) {
+        return when (val r = quest.fillSpecificSlot(member.iu, member.did, privateKey, frame, member.type, predicate, member.nfcPayload)) {
             is be.heyman.android.etymoclan.agentcore.KnowledgeQuest.Result.Filled -> {
                 val currentMember = _clanMembers.value.find { it.id == memberId } ?: member
                 val updatedPollens = currentMember.pollens.toMutableList().apply { add(r.pollen) }

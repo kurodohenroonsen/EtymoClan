@@ -43,10 +43,116 @@ class KnowledgeQuest(
         privateKey: java.security.PrivateKey,
         frame: KnowledgeFrame,
         productName: String,
-        excludePredicates: Set<String> = emptySet()
+        excludePredicates: Set<String> = emptySet(),
+        nfcPayload: String = ""
     ): Result {
         val slot = frame.nextEmptySlot(excludePredicates) ?: return Result.FrameComplete
-        return fillSpecificSlot(memberIu, memberDid, privateKey, frame, productName, slot.predicate)
+        return fillSpecificSlot(memberIu, memberDid, privateKey, frame, productName, slot.predicate, nfcPayload)
+    }
+
+    private fun getPropertyFromAdditionalProperties(json: org.json.JSONObject, keyWord: String): String? {
+        val addProps = json.optJSONArray("additionalProperty") ?: return null
+        for (i in 0 until addProps.length()) {
+            val prop = addProps.getJSONObject(i)
+            val pName = prop.optString("name", "")
+            val pVal = prop.optString("value", "")
+            if (pName.contains(keyWord, ignoreCase = true) && pVal.isNotEmpty()) {
+                return pVal
+            }
+        }
+        return null
+    }
+
+    private fun getValueFromJsonLd(json: org.json.JSONObject, label: String, predicate: String): String? {
+        val cleanLabel = label.lowercase().trim()
+        val cleanPred = predicate.lowercase().trim()
+        
+        if (cleanLabel.contains("gtin") || cleanPred.contains("gtin") || cleanLabel.contains("product id") || cleanPred.contains("productid")) {
+            val gtin = json.optString("gtin").takeIf { it.isNotEmpty() } 
+                ?: json.optString("identifier").substringAfterLast(":").takeIf { it.isNotEmpty() }
+            if (!gtin.isNullOrEmpty()) return gtin
+        }
+        if (cleanLabel == "product description" || cleanPred.contains("productdescription") || cleanLabel.contains("description")) {
+            val desc = json.optString("description")
+            if (desc.isNotEmpty()) return desc
+        }
+        if (cleanLabel == "product name" || cleanPred.contains("productname") || cleanLabel == "name") {
+            val name = json.optString("name")
+            if (name.isNotEmpty()) return name
+        }
+        if (cleanLabel.contains("brand") || cleanPred.contains("brand")) {
+            val man = json.optJSONObject("manufacturer")
+            val manName = man?.optString("name")
+            if (!manName.isNullOrEmpty()) return manName
+            val brand = json.optJSONObject("brand")
+            val brandName = brand?.optString("name")
+            if (!brandName.isNullOrEmpty()) return brandName
+            val name = json.optString("name")
+            if (name.isNotEmpty()) return name
+        }
+        if (cleanLabel == "functional name" || cleanPred.contains("functionalname")) {
+            val cat = json.optString("category")
+            if (cat.isNotEmpty()) {
+                return cat.substringAfter("/").trim()
+            }
+            return "Bière"
+        }
+        if (cleanLabel.contains("production date") || cleanPred.contains("productiondate")) {
+            val pd = json.optString("productionDate")
+            if (pd.isNotEmpty()) return pd
+        }
+        if (cleanLabel.contains("manufacturer") || cleanPred.contains("manufacturer")) {
+            val man = json.optJSONObject("manufacturer")
+            if (man != null) {
+                val name = man.optString("name")
+                if (name.isNotEmpty()) return name
+            }
+        }
+        if (cleanLabel.contains("price") || cleanPred.contains("price")) {
+            val offers = json.optJSONObject("offers")
+            if (offers != null) {
+                val price = offers.optString("price")
+                if (price.isNotEmpty()) return price
+            }
+        }
+        
+        if (cleanLabel.contains("allergen") || cleanPred.contains("allergen")) {
+            if (cleanLabel.contains("containment") || cleanPred.contains("containment")) {
+                val ingredients = getPropertyFromAdditionalProperties(json, "ingrédient")
+                return if (ingredients != null && (ingredients.contains("orge", ignoreCase = true) || ingredients.contains("malt", ignoreCase = true))) {
+                    "CONTAINS"
+                } else {
+                    "FREE_FROM"
+                }
+            }
+            val ingredients = getPropertyFromAdditionalProperties(json, "ingrédient")
+            if (ingredients != null) return ingredients
+        }
+
+        val addProps = json.optJSONArray("additionalProperty")
+        if (addProps != null) {
+            for (i in 0 until addProps.length()) {
+                val prop = addProps.getJSONObject(i)
+                val pName = prop.optString("name", "")
+                val pVal = prop.optString("value", "")
+                val match = when {
+                    cleanLabel.contains("alcohol") || cleanPred.contains("alcohol") -> pName.contains("alcool", ignoreCase = true)
+                    cleanLabel.contains("net content") || cleanLabel.contains("volume") || cleanPred.contains("netcontent") -> pName.contains("volume", ignoreCase = true) || pName.contains("contenant", ignoreCase = true)
+                    cleanLabel.contains("batch") || cleanLabel.contains("lot") || cleanPred.contains("batch") || cleanPred.contains("lot") -> pName.contains("lot", ignoreCase = true)
+                    cleanLabel.contains("best before") || cleanLabel.contains("expiration") || cleanLabel.contains("durabilité") || cleanPred.contains("bestbefore") || cleanPred.contains("expiration") -> pName.contains("durabilité", ignoreCase = true) || pName.contains("expiration", ignoreCase = true)
+                    cleanLabel.contains("ingredient") || cleanPred.contains("ingredient") -> pName.contains("ingrédient", ignoreCase = true)
+                    cleanLabel.contains("service temperature") || cleanPred.contains("service") -> pName.contains("température", ignoreCase = true)
+                    cleanLabel.contains("variety") || cleanPred.contains("variety") || cleanLabel.contains("variant") || cleanPred.contains("variant") -> pName.contains("variété", ignoreCase = true)
+                    cleanLabel.contains("organic") || cleanPred.contains("organic") -> pName.contains("biologique", ignoreCase = true) || pName.contains("organic", ignoreCase = true)
+                    pName.contains(label, ignoreCase = true) || label.contains(pName, ignoreCase = true) -> true
+                    else -> false
+                }
+                if (match && pVal.isNotEmpty()) {
+                    return pVal
+                }
+            }
+        }
+        return null
     }
 
     suspend fun fillSpecificSlot(
@@ -55,7 +161,8 @@ class KnowledgeQuest(
         privateKey: java.security.PrivateKey,
         frame: KnowledgeFrame,
         productName: String,
-        slotPredicate: String
+        slotPredicate: String,
+        nfcPayload: String = ""
     ): Result {
         val slot = frame.slots.find { it.predicate == slotPredicate } ?: return Result.FrameComplete
 
@@ -69,6 +176,61 @@ class KnowledgeQuest(
             repo.getCodeListValues(codeListCurie, limit = 40)
                 .map { "${it.curie} (${it.label})" }
         } else emptyList()
+
+        // 1. Try to extract value from nfcPayload first (ground truth)
+        // Skip price and makesOffer as they are signed at scan time by onNfcPayloadReceived
+        if (slot.predicate != "gs1:price" && slot.predicate != "gs1:makesOffer" && nfcPayload.isNotEmpty() && nfcPayload.trim().startsWith("{")) {
+            try {
+                val json = org.json.JSONObject(nfcPayload)
+                val rawVal = getValueFromJsonLd(json, slot.label, slot.predicate)
+                if (rawVal != null) {
+                    val cleanVal = rawVal.trim()
+                    var mappedVal: String? = null
+                    if (allowedValues.isNotEmpty()) {
+                        val matchedCurie = allowedValues.find { curieAndLabel ->
+                            val curiePart = curieAndLabel.substringBefore(" ").lowercase()
+                            val labelPart = curieAndLabel.substringAfter(" ").lowercase()
+                            cleanVal.contains(curiePart) || cleanVal.contains(labelPart) ||
+                            (curiePart.contains("barley") && (cleanVal.contains("orge") || cleanVal.contains("malt"))) ||
+                            (curiePart.contains("gluten") && cleanVal.contains("gluten")) ||
+                            (curiePart.contains("contains") && cleanVal.contains("contains")) ||
+                            (curiePart.contains("free_from") && cleanVal.contains("free from")) ||
+                            (curiePart.contains("may_contain") && cleanVal.contains("may contain"))
+                        }
+                        if (matchedCurie != null) {
+                            mappedVal = matchedCurie.substringBefore(" ")
+                        }
+                    } else {
+                        if (slot.predicate.contains("percentageOfAlcoholByVolume")) {
+                            val match = Regex("""\d+(\.\d+)?""").find(cleanVal)
+                            if (match != null) mappedVal = match.value
+                        } else {
+                            mappedVal = cleanVal
+                        }
+                    }
+                    if (mappedVal != null && mappedVal.isNotEmpty() && (prop == null || SlotValueValidator.isValid(prop, mappedVal, allowedValues))) {
+                        android.util.Log.i("KnowledgeQuest", "Direct extraction succeeded from NFC payload for ${slot.label}: $mappedVal")
+                        val traceInputs = listOf("urn:cid:nfc_payload")
+                        val pollen = PollenFactory.createAndSignPollen(
+                            targetIu = memberIu,
+                            motivation = "enriching",
+                            bodyType = "StructuredFact",
+                            bodyValue = mappedVal,
+                            predicate = slot.predicate,
+                            creatorDid = memberDid,
+                            privateKey = privateKey,
+                            traceInputs = traceInputs,
+                            tracePrompt = "Direct extraction from scanned NFC JSON-LD",
+                            traceDurationMs = 0,
+                            traceModel = "NFC-Scanner"
+                        )
+                        return Result.Filled(pollen, slot)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("KnowledgeQuest", "Error parsing NFC payload for direct slot extraction", e)
+            }
+        }
 
         // 4. Recherche web ciblée SUR CE CHAMP
         val query = "$productName ${slot.label}"
