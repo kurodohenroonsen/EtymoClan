@@ -17,3 +17,4 @@ local.properties
 *_temp.json
 window_dump*.xml
 *.uix
+.kotlin/
