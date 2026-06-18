@@ -411,7 +411,7 @@ fun MemberDetailScreen(
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Button(
                 onClick = { activeTab = "chat" },
@@ -422,7 +422,18 @@ fun MemberDetailScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 6.dp)
             ) {
-                Text("💬 Chat", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("💬 Chat", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Button(
+                onClick = { activeTab = "graph" },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (activeTab == "graph") themeColor else Color(0xFF222222)
+                ),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 6.dp)
+            ) {
+                Text("🕸️ Graphe", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Button(
                 onClick = { activeTab = "ledger" },
@@ -433,7 +444,7 @@ fun MemberDetailScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 6.dp)
             ) {
-                Text("📜 Index", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("📜 Index", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Button(
                 onClick = { activeTab = "activity" },
@@ -444,7 +455,7 @@ fun MemberDetailScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 6.dp)
             ) {
-                Text("📡 Activité", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("📡 Activité", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             Button(
                 onClick = { activeTab = "comparator" },
@@ -455,7 +466,7 @@ fun MemberDetailScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 6.dp)
             ) {
-                Text("🎨 Comparatif", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("🎨 Comparatif", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
 
@@ -528,6 +539,17 @@ fun MemberDetailScreen(
                 member = member,
                 themeColor = themeColor,
                 onSendMessage = onSendMessage,
+                modifier = Modifier.weight(1f)
+            )
+        } else if (activeTab == "graph") {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val repo = remember { be.heyman.android.etymoclan.data.gs1voc.Gs1VocRepository.get(context) }
+            val builder = remember { be.heyman.android.etymoclan.data.gs1voc.KnowledgeFrameBuilder(repo) }
+            val frame = remember(member.gs1Class, member.pollens) {
+                builder.build(member.gs1Class, member.pollens)
+            }
+            be.heyman.android.etymoclan.ui.screens.MemberKnowledgeGraphScreen(
+                frame = frame,
                 modifier = Modifier.weight(1f)
             )
         } else if (activeTab == "ledger") {

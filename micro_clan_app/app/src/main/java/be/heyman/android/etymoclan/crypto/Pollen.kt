@@ -11,22 +11,34 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+/**
+ * VERSION PATCHÉE — ajoute le champ `predicate` au PollenBody.
+ *
+ * Un Pollen devient ainsi un TRIPLET RDF signé :
+ *     target (sujet) + body.predicate + body.value (objet)
+ * ex: urn:icd:0160:444... | gs1:bestBeforeDate | "2026-07-01"
+ *
+ * RÉTRO-COMPATIBLE : si predicate == null, le JSON canonique est identique à l'ancien
+ * (body = {type, value}), donc les Pollens déjà signés gardent le même hash/urn:cid.
+ */
+
 data class Pollen(
     val context: String = "https://etimologiae.org/contexts/pollen/v1.jsonld",
-    val id: String, // urn:cid:hash
+    val id: String,
     val type: String = "Annotation",
-    val motivation: String, // "evaluating", "analyzing", "enriching", "translating"
-    val creator: String, // did:key:publickey
-    val created: String, // ISO timestamp
-    val target: String, // IU of the target
+    val motivation: String,
+    val creator: String,
+    val created: String,
+    val target: String,
     val body: PollenBody,
     val trace: AITrace? = null,
     val proof: DataIntegrityProof? = null
 )
 
 data class PollenBody(
-    val type: String, // "Fact", "SoilAnalysis", "IrrigationState", "EvolutionState"
-    val value: String
+    val type: String,               // "Fact", "SoilAnalysis", "StructuredFact"...
+    val value: String,              // l'objet du triplet (valeur ou URI)
+    val predicate: String? = null   // NOUVEAU : le prédicat GS1/schema.org, ex "gs1:netContent"
 )
 
 data class AITrace(
@@ -41,7 +53,7 @@ data class DataIntegrityProof(
     val type: String = "DataIntegrityProof",
     val cryptosuite: String = "ecdsa-jcs-2019",
     val proofPurpose: String = "assertionMethod",
-    val proofValue: String // base64 signature of the JCS string
+    val proofValue: String
 )
 
 object CryptoManager {
@@ -61,8 +73,7 @@ object CryptoManager {
         val s = Signature.getInstance("SHA256withECDSA")
         s.initSign(privateKey)
         s.update(dataToSign)
-        val signatureBytes = s.sign()
-        return Base64.encodeToString(signatureBytes, Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING)
+        return Base64.encodeToString(s.sign(), Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING)
     }
 
     fun verifySignatureWithDid(did: String, data: ByteArray, signatureStr: String): Boolean {
@@ -71,17 +82,12 @@ object CryptoManager {
             val base64Key = did.substring("did:key:".length)
             val keyBytes = Base64.decode(base64Key, Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING)
             val keyFactory = java.security.KeyFactory.getInstance("EC")
-            val x509KeySpec = java.security.spec.X509EncodedKeySpec(keyBytes)
-            val publicKey = keyFactory.generatePublic(x509KeySpec)
-            
+            val publicKey = keyFactory.generatePublic(java.security.spec.X509EncodedKeySpec(keyBytes))
             val s = Signature.getInstance("SHA256withECDSA")
             s.initVerify(publicKey)
             s.update(data)
-            val signatureBytes = Base64.decode(signatureStr, Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING)
-            s.verify(signatureBytes)
-        } catch (e: Exception) {
-            false
-        }
+            s.verify(Base64.decode(signatureStr, Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING))
+        } catch (e: Exception) { false }
     }
 }
 
@@ -93,6 +99,7 @@ object PollenFactory {
         bodyValue: String,
         creatorDid: String,
         privateKey: java.security.PrivateKey,
+        predicate: String? = null,            // NOUVEAU
         traceInputs: List<String> = emptyList(),
         tracePrompt: String = "",
         traceDurationMs: Long = 0,
@@ -104,12 +111,9 @@ object PollenFactory {
         val createdStr = sdf.format(Date())
 
         val canonicalJson = getCanonicalJson(
-            motivation = motivation,
-            creator = creatorDid,
-            created = createdStr,
-            target = targetIu,
-            bodyType = bodyType,
-            bodyValue = bodyValue,
+            motivation = motivation, creator = creatorDid, created = createdStr,
+            target = targetIu, bodyType = bodyType, bodyValue = bodyValue,
+            bodyPredicate = predicate,
             traceInputs = if (tracePrompt.isNotEmpty()) traceInputs else null,
             tracePrompt = if (tracePrompt.isNotEmpty()) tracePrompt else null,
             traceDuration = if (tracePrompt.isNotEmpty()) traceDurationMs else null,
@@ -117,88 +121,66 @@ object PollenFactory {
         )
 
         val hashBytes = MessageDigest.getInstance("SHA-256").digest(canonicalJson.toByteArray(Charsets.UTF_8))
-        val hashHex = hashBytes.joinToString("") { "%02x".format(it) }
-        val id = "urn:cid:$hashHex"
+        val id = "urn:cid:" + hashBytes.joinToString("") { "%02x".format(it) }
 
         val signatureStr = CryptoManager.signData(privateKey, canonicalJson.toByteArray(Charsets.UTF_8))
-        val proof = DataIntegrityProof(proofValue = signatureStr)
-
-        val traceObj = if (tracePrompt.isNotEmpty()) {
+        val traceObj = if (tracePrompt.isNotEmpty())
             AITrace(inputs = traceInputs, prompt = tracePrompt, durationMs = traceDurationMs, model = traceModel)
-        } else null
+        else null
 
         return Pollen(
-            id = id,
-            motivation = motivation,
-            creator = creatorDid,
-            created = createdStr,
+            id = id, motivation = motivation, creator = creatorDid, created = createdStr,
             target = targetIu,
-            body = PollenBody(type = bodyType, value = bodyValue),
+            body = PollenBody(type = bodyType, value = bodyValue, predicate = predicate),
             trace = traceObj,
-            proof = proof
+            proof = DataIntegrityProof(proofValue = signatureStr)
         )
     }
 
     fun getCanonicalJson(
-        motivation: String,
-        creator: String,
-        created: String,
-        target: String,
-        bodyType: String,
-        bodyValue: String,
-        traceInputs: List<String>?,
-        tracePrompt: String?,
-        traceDuration: Long?,
-        traceModel: String?
+        motivation: String, creator: String, created: String, target: String,
+        bodyType: String, bodyValue: String, bodyPredicate: String? = null,
+        traceInputs: List<String>?, tracePrompt: String?,
+        traceDuration: Long?, traceModel: String?
     ): String {
         val sortedMap = sortedMapOf<String, Any>()
         sortedMap["@context"] = "https://etimologiae.org/contexts/pollen/v1.jsonld"
-        sortedMap["body"] = mapOf("type" to bodyType, "value" to bodyValue).toSortedMap()
+        // body : on n'ajoute predicate QUE s'il existe -> rétro-compatibilité du hash
+        val bodyMap = sortedMapOf<String, Any>("type" to bodyType, "value" to bodyValue)
+        if (!bodyPredicate.isNullOrBlank()) bodyMap["predicate"] = bodyPredicate
+        sortedMap["body"] = bodyMap
         sortedMap["created"] = created
         sortedMap["creator"] = creator
         sortedMap["motivation"] = motivation
         sortedMap["target"] = target
         if (traceInputs != null && tracePrompt != null && traceDuration != null && traceModel != null) {
-            sortedMap["trace"] = mapOf(
-                "duration_ms" to traceDuration,
-                "inputs" to traceInputs,
-                "model" to traceModel,
-                "prompt" to tracePrompt,
-                "type" to "AITrace"
-            ).toSortedMap()
+            sortedMap["trace"] = sortedMapOf(
+                "duration_ms" to traceDuration, "inputs" to traceInputs,
+                "model" to traceModel, "prompt" to tracePrompt, "type" to "AITrace"
+            )
         }
         sortedMap["type"] = "Annotation"
         return mapToJsonString(sortedMap)
     }
 
     private fun mapToJsonString(map: Map<String, Any>): String {
-        val builder = StringBuilder()
-        builder.append("{")
+        val b = StringBuilder("{")
         val entries = map.entries.toList()
         for (i in entries.indices) {
-            val entry = entries[i]
-            builder.append("\"").append(entry.key).append("\":")
-            builder.append(valueToJsonString(entry.value))
-            if (i < entries.size - 1) {
-                builder.append(",")
-            }
+            b.append("\"").append(entries[i].key).append("\":")
+            b.append(valueToJsonString(entries[i].value))
+            if (i < entries.size - 1) b.append(",")
         }
-        builder.append("}")
-        return builder.toString()
+        return b.append("}").toString()
     }
 
-    private fun valueToJsonString(value: Any?): String {
-        return when (value) {
-            null -> "null"
-            is String -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
-            is Number -> value.toString()
-            is Boolean -> value.toString()
-            is List<*> -> "[" + value.joinToString(",") { valueToJsonString(it) } + "]"
-            is Map<*, *> -> {
-                @Suppress("UNCHECKED_CAST")
-                mapToJsonString(value as Map<String, Any>)
-            }
-            else -> "\"" + value.toString() + "\""
-        }
+    private fun valueToJsonString(value: Any?): String = when (value) {
+        null -> "null"
+        is String -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+        is Number -> value.toString()
+        is Boolean -> value.toString()
+        is List<*> -> "[" + value.joinToString(",") { valueToJsonString(it) } + "]"
+        is Map<*, *> -> @Suppress("UNCHECKED_CAST") mapToJsonString(value as Map<String, Any>)
+        else -> "\"" + value.toString() + "\""
     }
 }

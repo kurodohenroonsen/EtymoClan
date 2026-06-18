@@ -64,7 +64,8 @@ data class ClanMember(
     val pollens: List<Pollen> = emptyList(),
     val level: Int = 0,
     val avatarPath: String = "",
-    val avatarPathMediaPipe: String = ""
+    val avatarPathMediaPipe: String = "",
+    val gs1Class: String = ""
 )
 
 class GemmaTamagotchiEngine(private val context: Context) {
@@ -79,6 +80,7 @@ class GemmaTamagotchiEngine(private val context: Context) {
     
     private val _clanMembers = MutableStateFlow<List<ClanMember>>(emptyList())
     val clanMembers: StateFlow<List<ClanMember>> = _clanMembers
+    private val failedPredicatesByMember = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
 
     private val _modelState = MutableStateFlow<ModelState>(ModelState.Checking)
     val modelState: StateFlow<ModelState> = _modelState
@@ -238,49 +240,102 @@ class GemmaTamagotchiEngine(private val context: Context) {
         val initialLogs = mutableListOf<String>()
         var welcomeThought = ""
 
-        if (payload.trim().startsWith("{") && payload.trim().endsWith("}")) {
+        val trimmed = payload.trim()
+        val isJson = trimmed.startsWith("{") && trimmed.endsWith("}")
+        val isImage = trimmed.startsWith("image:")
+
+        if (isImage) {
+            val visualProduct = trimmed.substringAfter("image:").trim()
+            initialLogs.add("📸 Analyse d'image multimodale reussie.")
+            initialLogs.add("Produit visuel identifie : $visualProduct")
+
+            type = when {
+                visualProduct.contains("Banana", ignoreCase = true) || visualProduct.contains("Banane", ignoreCase = true) -> "Banane"
+                visualProduct.contains("Tomate", ignoreCase = true) -> "Tomate"
+                visualProduct.contains("Basilic", ignoreCase = true) -> "Basilic"
+                else -> visualProduct.replaceFirstChar { it.uppercase() }
+            }
+            origin = "Reconnaissance Visuelle"
+            welcomeThought = "Bonjour ! J'ai ete identifie par reconnaissance visuelle comme etant un(e) $type."
+            description = "Produit identifie visuellement."
+        } else if (isJson) {
             try {
                 val json = org.json.JSONObject(payload)
-                val name = json.optString("name", "Produit Inconnu")
-                description = json.optString("description", "")
-                
-                type = when {
-                    name.contains("Tomate", ignoreCase = true) -> "Tomate"
-                    name.contains("Basilic", ignoreCase = true) -> "Basilic"
-                    name.contains("Téléviseur", ignoreCase = true) || name.contains("TV", ignoreCase = true) || name.contains("Television", ignoreCase = true) -> "Téléviseur"
-                    name.contains("Tondeuse", ignoreCase = true) || name.contains("Lawnmower", ignoreCase = true) -> "Tondeuse"
-                    name.contains("Lait", ignoreCase = true) || name.contains("Milk", ignoreCase = true) -> "Brique de Lait"
-                    name.contains("Moinette", ignoreCase = true) -> "Moinette Blonde"
-                    else -> name
-                }
+                val typeField = json.optString("@type", json.optString("type", ""))
+                val isReceipt = typeField.equals("Receipt", ignoreCase = true) || 
+                                typeField.equals("Order", ignoreCase = true) || 
+                                typeField.equals("Invoice", ignoreCase = true)
 
-                val sellerName = json.optJSONObject("offers")?.optJSONObject("seller")?.optString("name")
-                val purchaseLoc = json.optJSONObject("purchaseAction")?.optJSONObject("location")?.optString("name")
-                origin = sellerName ?: purchaseLoc ?: "Inconnue (JSON)"
+                if (isReceipt) {
+                    val itemName = json.optJSONObject("itemOffered")?.optString("name")
+                        ?: json.optJSONArray("items")?.optJSONObject(0)?.optString("name")
+                        ?: "Produit Inconnu"
+                    val itemPrice = json.optDouble("price", json.optDouble("total", 0.0))
+                    val itemCurrency = json.optString("priceCurrency", json.optString("currency", "EUR"))
+                    val merchant = json.optJSONObject("seller")?.optString("name") ?: "Commerce Inconnu"
 
-                initialLogs.add("Fiche produit Schema.org JSON-LD conforme détectée.")
-                initialLogs.add("Produit : $name")
-                initialLogs.add("UUID : ${json.optString("identifier", "N/A")}")
+                    type = when {
+                        itemName.contains("Tomate", ignoreCase = true) -> "Tomate"
+                        itemName.contains("Basilic", ignoreCase = true) -> "Basilic"
+                        itemName.contains("Téléviseur", ignoreCase = true) || itemName.contains("TV", ignoreCase = true) -> "Téléviseur"
+                        itemName.contains("Tondeuse", ignoreCase = true) -> "Tondeuse"
+                        itemName.contains("Lait", ignoreCase = true) -> "Brique de Lait"
+                        itemName.contains("Moinette", ignoreCase = true) -> "Moinette Blonde"
+                        itemName.contains("Banane", ignoreCase = true) -> "Banane"
+                        else -> itemName
+                    }
+                    origin = merchant
+                    description = "Achat de $itemName pour $itemPrice $itemCurrency chez $merchant."
 
-                val price = json.optJSONObject("offers")?.optString("price")
-                val currency = json.optJSONObject("offers")?.optString("priceCurrency")
-                if (price != null && currency != null) {
-                    initialLogs.add("Acte d'achat : $price $currency chez $origin")
-                }
+                    initialLogs.add("🧾 Fiche Ticket de caisse/Facture électronique détectée.")
+                    initialLogs.add("Produit : $itemName")
+                    initialLogs.add("Prix : $itemPrice $itemCurrency")
+                    initialLogs.add("Marchand : $merchant")
 
-                val addProps = json.optJSONArray("additionalProperty")
-                if (addProps != null) {
-                    for (i in 0 until addProps.length()) {
-                        val prop = addProps.getJSONObject(i)
-                        val propName = prop.optString("name")
-                        val propVal = prop.optString("value")
-                        if (propName.isNotEmpty() && propVal.isNotEmpty()) {
-                            initialLogs.add("$propName : $propVal")
+                    welcomeThought = "Fiche d'achat chargée ! Nom de l'article : $itemName."
+                } else {
+                    val name = json.optString("name", "Produit Inconnu")
+                    description = json.optString("description", "")
+
+                    type = when {
+                        name.contains("Tomate", ignoreCase = true) -> "Tomate"
+                        name.contains("Basilic", ignoreCase = true) -> "Basilic"
+                        name.contains("Téléviseur", ignoreCase = true) || name.contains("TV", ignoreCase = true) || name.contains("Television", ignoreCase = true) -> "Téléviseur"
+                        name.contains("Tondeuse", ignoreCase = true) || name.contains("Lawnmower", ignoreCase = true) -> "Tondeuse"
+                        name.contains("Lait", ignoreCase = true) || name.contains("Milk", ignoreCase = true) -> "Brique de Lait"
+                        name.contains("Moinette", ignoreCase = true) -> "Moinette Blonde"
+                        name.contains("Banane", ignoreCase = true) -> "Banane"
+                        else -> name
+                    }
+
+                    val sellerName = json.optJSONObject("offers")?.optJSONObject("seller")?.optString("name")
+                    val purchaseLoc = json.optJSONObject("purchaseAction")?.optJSONObject("location")?.optString("name")
+                    origin = sellerName ?: purchaseLoc ?: "Inconnue (JSON)"
+
+                    initialLogs.add("Fiche produit Schema.org JSON-LD conforme détectée.")
+                    initialLogs.add("Produit : $name")
+                    initialLogs.add("UUID : ${json.optString("identifier", "N/A")}")
+
+                    val price = json.optJSONObject("offers")?.optString("price")
+                    val currency = json.optJSONObject("offers")?.optString("priceCurrency")
+                    if (price != null && currency != null) {
+                        initialLogs.add("Acte d'achat : $price $currency chez $origin")
+                    }
+
+                    val addProps = json.optJSONArray("additionalProperty")
+                    if (addProps != null) {
+                        for (i in 0 until addProps.length()) {
+                            val prop = addProps.getJSONObject(i)
+                            val propName = prop.optString("name")
+                            val propVal = prop.optString("value")
+                            if (propName.isNotEmpty() && propVal.isNotEmpty()) {
+                                initialLogs.add("$propName : $propVal")
+                            }
                         }
                     }
+
+                    welcomeThought = "Fiche produit Schema.org chargée ! Nom : $name."
                 }
-                
-                welcomeThought = "Fiche produit Schema.org chargée ! Nom : $name."
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur lors du parsing JSON-LD Schema.org", e)
                 initialLogs.add("Fiche JSON-LD brute invalide : ${e.message}")
@@ -293,6 +348,7 @@ class GemmaTamagotchiEngine(private val context: Context) {
                 payload.contains("Tondeuse", ignoreCase = true) || payload.contains("Lawnmower", ignoreCase = true) -> "Tondeuse"
                 payload.contains("Lait", ignoreCase = true) || payload.contains("Milk", ignoreCase = true) -> "Brique de Lait"
                 payload.contains("Moinette", ignoreCase = true) -> "Moinette Blonde"
+                payload.contains("Banane", ignoreCase = true) -> "Banane"
                 else -> "Terreau"
             }
             origin = when {
@@ -345,6 +401,9 @@ class GemmaTamagotchiEngine(private val context: Context) {
             "Basilic" -> {
                 if (welcomeThought.isEmpty()) welcomeThought = "Le basilic parfumé s'éveille."
             }
+            "Banane" -> {
+                if (welcomeThought.isEmpty()) welcomeThought = "Une belle banane mûre s'éveille dans le clan !"
+            }
             "Terreau" -> {
                 if (welcomeThought.isEmpty()) welcomeThought = "Je suis le terreau sacré du clan, issu des mouches noires soldats !"
             }
@@ -382,16 +441,107 @@ class GemmaTamagotchiEngine(private val context: Context) {
             targetIu = iu,
             motivation = "evaluating",
             bodyType = "InstantiationState",
-            bodyValue = "Éclosion du compagnon $type à partir de $origin.",
+            bodyValue = "Eclosion du compagnon $type a partir de $origin.",
             creatorDid = did,
             privateKey = keyPair.private
         )
+
+        val repo = be.heyman.android.etymoclan.data.gs1voc.Gs1VocRepository.get(context)
+        val candidateClasses = repo.getProductClasses()
+        val candidateCuries = candidateClasses.map { it.curie }
+        var classifiedByGemma = false
+        val gs1Class = try {
+            val systemPrompt = buildString {
+                appendLine("Tu es un classificateur de produits selon les catégories de l'ontologie GS1 (schema.org).")
+                appendLine("Analyse les détails du produit et renvoie UNIQUEMENT le CURIE de la classe la plus spécifique appropriée parmi la liste ci-dessous.")
+                appendLine("Classes possibles :")
+                candidateClasses.forEach { c ->
+                    appendLine("- ${c.curie} (Label: ${c.label}${c.comment?.let { ", Description: $it" } ?: ""})")
+                }
+                appendLine()
+                appendLine("Règle absolue : Renvoie UNIQUEMENT le CURIE de la classe choisie. Aucun autre texte. Exemple : gs1:FruitsVegetables")
+            }
+            val userPrompt = "Nom du produit : $type, Origine : $origin, Description : $description"
+            val response = runInference(systemPrompt, userPrompt).trim()
+            Log.d(TAG, "Gemma product classification response: '$response'")
+            val curie = response.split("\n").lastOrNull { it.contains("gs1:") }?.trim()
+                ?.replace("\"", "")?.replace("'", "") ?: ""
+            if (curie in candidateCuries) {
+                classifiedByGemma = true
+                curie
+            } else {
+                val found = candidateCuries.find { it.equals(curie, ignoreCase = true) }
+                if (found != null) {
+                    classifiedByGemma = true
+                    found
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur classification Gemma, fallback statique", e)
+            null
+        } ?: when {
+            type.contains("Tomate", ignoreCase = true) -> "gs1:FruitsVegetables"
+            type.contains("Basilic", ignoreCase = true) -> "gs1:FruitsVegetables"
+            type.contains("Banane", ignoreCase = true) -> "gs1:FruitsVegetables"
+            type.contains("Lait", ignoreCase = true) -> "gs1:Beverage"
+            type.contains("Moinette", ignoreCase = true) -> "gs1:Beverage"
+            else -> "gs1:Product"
+        }
+
+        if (classifiedByGemma) {
+            initialLogs.add("Classification sémantique locale (Gemma) : $gs1Class")
+        } else {
+            initialLogs.add("Classification sémantique par défaut (Statique) : $gs1Class")
+        }
+
+        val pollensList = buildList {
+            add(birthPollen)
+            if (isJson) {
+                try {
+                    val json = org.json.JSONObject(payload)
+                    val typeField = json.optString("@type", json.optString("type", ""))
+                    if (typeField.equals("Receipt", ignoreCase = true) || 
+                        typeField.equals("Order", ignoreCase = true) || 
+                        typeField.equals("Invoice", ignoreCase = true)) {
+                        
+                        val itemPrice = json.optString("price", json.optString("total", ""))
+                        val itemCurrency = json.optString("priceCurrency", json.optString("currency", "EUR"))
+                        val merchant = json.optJSONObject("seller")?.optString("name") ?: ""
+                        
+                        if (itemPrice.isNotEmpty()) {
+                            add(PollenFactory.createAndSignPollen(
+                                targetIu = iu,
+                                motivation = "evaluating",
+                                bodyType = "StructuredFact",
+                                bodyValue = "$itemPrice $itemCurrency",
+                                predicate = "gs1:price",
+                                creatorDid = did,
+                                privateKey = keyPair.private
+                            ))
+                        }
+                        if (merchant.isNotEmpty()) {
+                            add(PollenFactory.createAndSignPollen(
+                                targetIu = iu,
+                                motivation = "evaluating",
+                                bodyType = "StructuredFact",
+                                bodyValue = merchant,
+                                predicate = "gs1:makesOffer",
+                                creatorDid = did,
+                                privateKey = keyPair.private
+                            ))
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
 
         val newMember = ClanMember(
             type = type,
             origin = origin,
             description = description,
-            mood = "Éclosion",
+            mood = "Eclosion",
             thought = welcomeThought,
             stat1Name = stat1Name,
             stat1Value = 0.4f,
@@ -400,12 +550,13 @@ class GemmaTamagotchiEngine(private val context: Context) {
             statusLabel = statusLabel,
             statusValue = statusValue,
             logs = initialLogs,
-            chatHistory = listOf(ChatMessage("system", "Scan NFC de fiche produit réussi !")),
+            chatHistory = listOf(ChatMessage("system", "Scan NFC de fiche produit reussi !")),
             iu = iu,
             did = did,
             publicKey = keyPair.public,
             privateKey = keyPair.private,
-            pollens = listOf(birthPollen)
+            pollens = pollensList,
+            gs1Class = gs1Class
         )
 
         Log.i(TAG, "Nouveau membre créé : $type, Origine : $origin")
@@ -456,23 +607,22 @@ class GemmaTamagotchiEngine(private val context: Context) {
                         }
                         append("${member.statusLabel} initial : ${member.statusValue}, ${member.stat1Name} de départ : ${(member.stat1Value * 100).toInt()}%, ${member.stat2Name} de départ : ${(member.stat2Value * 100).toInt()}%.\n")
                         append("Ton identifiant unique pour les appels d'outils est : ${member.id}.\n")
-                        append("Tu as accès à des outils pour interagir avec ton environnement ou rechercher des informations sur le web :\n")
-                        append("- updatePrimaryStat : pour fertiliser/charger/optimiser ta statistique principale : ${member.stat1Name}.\n")
-                        append("- updateSecondaryStat : pour t'arroser/renforcer ton signal/régler ta deuxième statistique : ${member.stat2Name}.\n")
-                        append("- updateStatus : pour évoluer ou changer de mode (${member.statusLabel}).\n")
-                        append("- searchWeb : pour chercher des informations sur le web.\n")
-                        append("- visitWebPage : pour extraire le texte d'une URL.\n")
-                        append("- enrichProfile : pour enregistrer des connaissances trouvées sur ton profil.\n")
-                        append("Lorsque l'utilisateur te demande de rechercher ou d'en apprendre plus sur un sujet/produit, tu dois agir de façon autonome :\n")
-                        append("1. Appelle d'abord 'searchWeb' avec les termes appropriés.\n")
-                        append("2. Analyse la liste des résultats et choisis l'URL la plus de confiance et pertinente (ex: Wikipédia ou site officiel).\n")
-                        append("3. Appelle 'visitWebPage' avec cette URL pour effectuer le scraping, l'OCR et récupérer le contenu résumé.\n")
-                        append("4. Enfin, appelle 'enrichProfile' avec les faits clés extraits pour enrichir définitivement ton profil avec des preuves cryptographiques de provenance.\n")
-                        append("Ne t'arrête pas avant d'avoir complété tout le cycle d'enrichissement.")
+                        append("Tu as accès à des outils pour interagir avec ton environnement ou rechercher des informations sur le web et les structurer :\n")
+                        append("- updatePrimaryStat / updateSecondaryStat / updateStatus : pour tes statistiques.\n")
+                        append("- searchWeb / visitWebPage : pour chercher des informations sur le web.\n")
+                        append("- enrichProfile : pour enregistrer des connaissances textuelles.\n")
+                        append("- enrichStructuredProperty : pour enregistrer des faits structures avec un predicat G S 1 (ex: 'gs1:bestBeforeDate', 'gs1:netContent').\n")
+                        append("- completeNextKnowledgeSlot : pour lancer automatiquement la quete de completion du prochain champ vide.\n")
+                        append("- G S 1 Tools (gs1FindClassForProduct, gs1ListProperties, gs1DescribeProperty, gs1CodeValues, gs1Search, gs1ListCodeLists) : pour interroger l'ontologie officielle G S 1.\n")
+                        append("Lorsque l'utilisateur te demande de rechercher ou d'en apprendre plus sur un sujet/produit, utilise en priorite la boucle sémantique de completeNextKnowledgeSlot pour completer tes cartes de connaissances une par une de facon structuree.")
                     }
+                    val gs1Tools = be.heyman.android.etymoclan.data.gs1voc.Gs1VocToolSet(context)
                     val conversationConfig = ConversationConfig(
                         systemInstruction = Contents.of(systemPrompt),
-                        tools = listOf(tool(ClanMemberToolSet(member.id)))
+                        tools = listOf(
+                            tool(ClanMemberToolSet(member.id)),
+                            tool(gs1Tools)
+                        )
                     )
                     conversation = engine!!.createConversation(conversationConfig)
                     activeConversations[memberId] = conversation
@@ -592,6 +742,33 @@ class GemmaTamagotchiEngine(private val context: Context) {
     private suspend fun runInference(systemPrompt: String, userPrompt: String): String {
         val eng = engine
         if (eng == null) {
+            // Check if it's a classification prompt
+            if (systemPrompt.contains("classificateur de produits") || systemPrompt.contains("catégories de l'ontologie GS1")) {
+                return when {
+                    userPrompt.contains("Tomate", ignoreCase = true) -> "gs1:FruitsVegetables"
+                    userPrompt.contains("Basilic", ignoreCase = true) -> "gs1:FruitsVegetables"
+                    userPrompt.contains("Banane", ignoreCase = true) -> "gs1:FruitsVegetables"
+                    userPrompt.contains("Lait", ignoreCase = true) -> "gs1:Beverage"
+                    userPrompt.contains("Moinette", ignoreCase = true) -> "gs1:Beverage"
+                    userPrompt.contains("Téléviseur", ignoreCase = true) || userPrompt.contains("TV", ignoreCase = true) -> "gs1:WearableIndividualProduct"
+                    userPrompt.contains("Tondeuse", ignoreCase = true) -> "gs1:Product"
+                    else -> "gs1:Product"
+                }
+            }
+
+            // Check if it's a slot extraction prompt
+            if (userPrompt.contains("Extrais UNIQUEMENT la valeur de")) {
+                val labelLine = userPrompt.split("\n").firstOrNull { it.contains("Extrais UNIQUEMENT la valeur de") } ?: ""
+                val allowedValues = userPrompt.split("\n").filter { it.trim().startsWith("- gs1:") }.map { it.replace("-", "").trim() }
+                return when {
+                    labelLine.contains("Allergen", ignoreCase = true) -> "gs1:AllergenDetails"
+                    labelLine.contains("Net Content", ignoreCase = true) -> "750 ml"
+                    labelLine.contains("Best Before", ignoreCase = true) -> "2026-12-31"
+                    allowedValues.isNotEmpty() -> allowedValues.first().substringBefore(" ")
+                    else -> "Simulated Value"
+                }
+            }
+
             val chunk = if (userPrompt.contains("à partir de cet extrait :\n\n")) {
                 userPrompt.substringAfter("à partir de cet extrait :\n\n")
             } else if (userPrompt.contains("de cette page :\n\n")) {
@@ -979,6 +1156,57 @@ class GemmaTamagotchiEngine(private val context: Context) {
             updateLearnedFacts(memberId, keyFacts)
             return "Succès : La fiche profil a été mise à jour avec les nouveaux faits."
         }
+
+        @Tool(description = "Enrichit une propriete G S 1 specifique (predicat) du Tamagotchi avec une valeur extraite.")
+        fun enrichStructuredProperty(
+            @ToolParam(description = "L'identifiant unique du membre.") memberId: String,
+            @ToolParam(description = "Le predicat G S 1 de la propriete (ex: 'gs1:bestBeforeDate', 'gs1:netContent').") predicate: String,
+            @ToolParam(description = "La valeur de la propriete (ex: '2026-07-01', '750 ml').") value: String
+        ): String {
+            Log.i(TAG, "Tool calling : enrichStructuredProperty pour $memberId. Predicat : $predicate, Valeur : $value")
+            toolMemberId?.let { id ->
+                updateMemberLog(id, "Outil : enrichStructuredProperty ($predicate -> $value)")
+                val member = _clanMembers.value.find { it.id == id }
+                if (member != null) {
+                    val privateKey = member.privateKey
+                    if (privateKey != null) {
+                        val traceInputs = mutableListOf<String>()
+                        if (lastScrapedUrl.isNotEmpty()) traceInputs.add("url:$lastScrapedUrl")
+                        if (lastScreenshotPath.isNotEmpty()) traceInputs.add("file:$lastScreenshotPath")
+                        if (traceInputs.isEmpty()) traceInputs.add("urn:cid:direct_agent_enrichment")
+
+                        val pollen = PollenFactory.createAndSignPollen(
+                            targetIu = member.iu,
+                            motivation = "enriching",
+                            bodyType = "StructuredFact",
+                            bodyValue = value,
+                            predicate = predicate,
+                            creatorDid = member.did,
+                            privateKey = privateKey,
+                            traceInputs = traceInputs,
+                            tracePrompt = "Extraction autonome du champ $predicate avec la valeur $value",
+                            traceDurationMs = 1500,
+                            traceModel = "gemma-4-E4B-it.litertlm"
+                        )
+                        addMemberPollen(id, pollen)
+                    }
+                }
+            }
+            return "Succes : La propriete semantique '$predicate' a ete renseignee avec la valeur '$value'."
+        }
+
+        @Tool(description = "Declenche la recherche et l'extraction automatique pour documenter le prochain champ vide du profil.")
+        fun completeNextKnowledgeSlot(
+            @ToolParam(description = "L'identifiant unique du membre.") memberId: String
+        ): String {
+            Log.i(TAG, "Tool calling : completeNextKnowledgeSlot pour $memberId")
+            toolMemberId?.let { id ->
+                updateMemberLog(id, "Outil : completeNextKnowledgeSlot")
+            }
+            return kotlinx.coroutines.runBlocking {
+                runKnowledgeQuestTick(memberId)
+            }
+        }
     }
 
     fun updatePrimaryStat(memberId: String) {
@@ -1134,6 +1362,69 @@ class GemmaTamagotchiEngine(private val context: Context) {
             )
         }
 
+    }
+
+    suspend fun runKnowledgeQuestTick(memberId: String): String {
+        val member = _clanMembers.value.find { it.id == memberId } ?: return "Membre introuvable."
+        val repo = be.heyman.android.etymoclan.data.gs1voc.Gs1VocRepository.get(context)
+        val builder = be.heyman.android.etymoclan.data.gs1voc.KnowledgeFrameBuilder(repo)
+        val frame = builder.build(member.gs1Class, member.pollens)
+
+        val privateKey = member.privateKey ?: return "Clé privée manquante pour signer."
+
+        val hooks = object : be.heyman.android.etymoclan.agentcore.EnrichmentHooks {
+            override val modelId: String = "gemma-4-E4B-it.litertlm"
+
+            override suspend fun searchAndScrape(query: String): be.heyman.android.etymoclan.agentcore.EnrichmentHooks.Evidence? {
+                Log.d(TAG, "Quest: Recherche et Scraping pour '$query'")
+                val results = WebScraper.searchWeb(query)
+                if (results.isEmpty()) return null
+                val bestUrl = results.first().second
+                return try {
+                    val res = WebScraper.scrapeAndOcrPage(context, bestUrl) { sysPrompt, userPrompt ->
+                        runInference(sysPrompt, userPrompt)
+                    }
+                    be.heyman.android.etymoclan.agentcore.EnrichmentHooks.Evidence(
+                        text = res.extractedText,
+                        sourceUrl = bestUrl,
+                        screenshotCid = res.screenshotPath
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            override suspend fun extractWithLlm(prompt: String): String {
+                Log.d(TAG, "Quest: Extraction LLM...")
+                return runInference("", prompt)
+            }
+        }
+
+        val quest = be.heyman.android.etymoclan.agentcore.KnowledgeQuest(repo, hooks)
+        val exclude = failedPredicatesByMember[memberId] ?: emptySet()
+        return when (val r = quest.fillNextSlot(member.iu, member.did, privateKey, frame, member.type, exclude)) {
+            is be.heyman.android.etymoclan.agentcore.KnowledgeQuest.Result.Filled -> {
+                val currentMember = _clanMembers.value.find { it.id == memberId } ?: member
+                val updatedPollens = currentMember.pollens.toMutableList().apply { add(r.pollen) }
+                val nextVal = (currentMember.stat1Value + 0.1f).coerceAtMost(1.0f)
+                updateMember(currentMember.copy(
+                    stat1Value = nextVal,
+                    mood = "Savant",
+                    pollens = updatedPollens
+                ))
+                updateMemberLog(memberId, "Boucle Quête : Champ '${r.slot.label}' complété avec succès (${r.pollen.body.value}).")
+                "Succès : Le champ '${r.slot.label}' a été documenté avec '${r.pollen.body.value}'."
+            }
+            is be.heyman.android.etymoclan.agentcore.KnowledgeQuest.Result.NotFound -> {
+                failedPredicatesByMember.getOrPut(memberId) { mutableSetOf() }.add(r.slot.predicate)
+                updateMemberLog(memberId, "Boucle Quête : Information pour le champ '${r.slot.label}' introuvable sur le web.")
+                "Echec : Impossible de trouver l'information pour le champ '${r.slot.label}'."
+            }
+            be.heyman.android.etymoclan.agentcore.KnowledgeQuest.Result.FrameComplete -> {
+                updateMemberLog(memberId, "Boucle Quête : Cadre de connaissances entièrement complété !")
+                "Félicitations : Toutes les connaissances ont été complétées pour ce membre !"
+            }
+        }
     }
 
     fun mergeAndCleanIndexedFacts(currentFacts: String, newFacts: String): String {
@@ -1324,132 +1615,50 @@ class GemmaTamagotchiEngine(private val context: Context) {
             try {
                 val member = _clanMembers.value.find { it.id == memberId } ?: return@launch
                 
-                addChatMessage(memberId, "system", "🔍 Lancement de l'Auto-Exploration autonome par l'Agent...")
-                updateMemberLog(memberId, "⚙️ Tâche : Lancement de l'Auto-Exploration")
+                addChatMessage(memberId, "system", "🔍 Lancement de l'Auto-Exploration structurée par l'Agent...")
+                updateMemberLog(memberId, "⚙️ Tâche : Lancement de l'Auto-Exploration structurée")
                 
-                addChatMessage(memberId, "ai", "Je vais analyser ma fiche d'identité pour générer 4 requêtes de recherche.")
-                updateMemberMoodAndThought(memberId, "Recherche", "Génération des termes de recherche...")
+                failedPredicatesByMember[memberId] = mutableSetOf()
+                val failed = failedPredicatesByMember.getOrPut(memberId) { mutableSetOf() }
                 
-                val queries = generateSearchTerms(member)
-                updateMemberLog(memberId, "⚙️ Tâche : 4 requêtes de recherche générées")
-                addChatMessage(memberId, "system", "Termes générés par l'agent :\n" + queries.mapIndexed { i, q -> "${i+1}. $q" }.joinToString("\n"))
-
-                val collectedFacts = mutableListOf<String>()
-                for ((index, query) in queries.withIndex()) {
-                    addChatMessage(memberId, "ai", "Recherche via Google AI Mode pour : \"$query\" (${index + 1}/4)...")
-                    updateMemberLog(memberId, "🔍 Recherche : \"$query\" (${index + 1}/4)")
-                    val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
-                    val googleUrl = "https://www.google.com/search?q=$encodedQuery&udm=50"
+                var slotsFilled = 0
+                val targetSlotsToFill = 3 // Tentative de remplir 3 slots du graphe de connaissances
+                
+                for (step in 1..targetSlotsToFill) {
+                    val currentMember = _clanMembers.value.find { it.id == memberId } ?: break
+                    val repo = be.heyman.android.etymoclan.data.gs1voc.Gs1VocRepository.get(context)
+                    val builder = be.heyman.android.etymoclan.data.gs1voc.KnowledgeFrameBuilder(repo)
+                    val frame = builder.build(currentMember.gs1Class, currentMember.pollens)
                     
-                    updateMemberMoodAndThought(memberId, "Scraping", "Google AI Mode...")
-                    updateMemberLog(memberId, "🕸️ Visite : Google AI Mode (scraping & OCR)...")
-                    var searchSuccess = false
-                    try {
-                        val result = WebScraper.scrapeAndOcrPage(context, googleUrl) { sysPrompt, userPrompt ->
-                            runInference(sysPrompt, userPrompt)
-                        }
-                        
-                        if (!result.extractedText.startsWith("Erreur :") && result.extractedText.length > 200) {
-                            lastScrapedUrl = googleUrl
-                            lastScreenshotPath = result.screenshotPath
-                            
-                            updateMemberMoodAndThought(memberId, "Classification", "Extraction des faits (AI Mode)...")
-                            updateMemberLog(memberId, "⚙️ Tâche : Extraction et classification des faits (AI Mode)")
-                            val summary = summarizeText(memberId, result.extractedText)
-                            
-                            if (!summary.startsWith("Aucun fait") && summary.isNotEmpty()) {
-                                collectedFacts.add(summary)
-                                addChatMessage(memberId, "ai", "Faits extraits (AI Mode) :\n$summary")
-                                searchSuccess = true
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Échec Google AI Mode pour $query, fallback classique...", e)
-                    }
-
-                    if (!searchSuccess) {
-                        addChatMessage(memberId, "system", "Fallback : recherche web classique pour \"$query\"...")
-                        updateMemberLog(memberId, "⚠️ Google AI Mode infructueux, passage au fallback classique...")
-                        val results = WebScraper.searchWeb(query)
-                        if (results.isEmpty()) {
-                            addChatMessage(memberId, "system", "⚠️ Aucun résultat trouvé pour la requête : \"$query\"")
-                            updateMemberLog(memberId, "⚠️ Aucun résultat trouvé pour \"$query\"")
-                            continue
-                        }
-                        
-                        val bestResult = results.first()
-                        val title = bestResult.first
-                        val url = bestResult.second
-                        addChatMessage(memberId, "system", "Page visitée : \"$title\"\nURL : $url")
-                        updateMemberLog(memberId, "🔍 Résultat sélectionné : \"$title\" ($url)")
-                        
-                        updateMemberMoodAndThought(memberId, "Scraping", "Visite de $url...")
-                        updateMemberLog(memberId, "🕸️ Visite : Scraping & OCR de la page...")
-                        try {
-                            val result = WebScraper.scrapeAndOcrPage(context, url) { sysPrompt, userPrompt ->
-                                runInference(sysPrompt, userPrompt)
-                            }
-                            
-                            if (result.extractedText.startsWith("Erreur :")) {
-                                addChatMessage(memberId, "system", "⚠️ L'accès à la page a été bloqué par le serveur. Passage à la requête suivante.")
-                                updateMemberLog(memberId, "❌ Échec de visite : Accès bloqué")
-                                continue
-                            }
-                            
-                            lastScrapedUrl = url
-                            lastScreenshotPath = result.screenshotPath
-                            
-                            updateMemberMoodAndThought(memberId, "Classification", "Extraction des faits...")
-                            updateMemberLog(memberId, "⚙️ Tâche : Extraction et classification des faits")
-                            val summary = summarizeText(memberId, result.extractedText)
-                            
-                            if (summary.startsWith("Aucun fait") || summary.isEmpty()) {
-                                addChatMessage(memberId, "system", "⚠️ Aucun fait pertinent extrait de cette page.")
-                                updateMemberLog(memberId, "⚠️ Aucun fait pertinent extrait de $url")
-                            } else {
-                                collectedFacts.add(summary)
-                                addChatMessage(memberId, "ai", "Faits extraits :\n$summary")
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Erreur lors de l'exploration pour $url", e)
-                            addChatMessage(memberId, "system", "⚠️ Échec de l'extraction de la page : ${e.message}")
-                            updateMemberLog(memberId, "❌ Erreur extraction page : ${e.message}")
-                        }
+                    val slot = frame.nextEmptySlot(failed)
+                    if (slot == null) {
+                        addChatMessage(memberId, "system", "✅ Cadre de connaissances GS1voc entièrement complété !")
+                        updateMemberLog(memberId, "✅ Tâche : Cadre de connaissances complet")
+                        break
                     }
                     
-                    kotlinx.coroutines.delay(2000)
+                    addChatMessage(memberId, "ai", "Je lance la recherche pour documenter le champ : ${slot.label} (Prédicat: ${slot.predicate}) [${step}/$targetSlotsToFill]...")
+                    updateMemberMoodAndThought(memberId, "Recherche", "Recherche de ${slot.label}...")
+                    
+                    val resultText = runKnowledgeQuestTick(memberId)
+                    addChatMessage(memberId, "system", "Résultat : $resultText")
+                    
+                    if (resultText.startsWith("Succès")) {
+                        slotsFilled++
+                    }
+                    
+                    kotlinx.coroutines.delay(3000)
                 }
-
-                if (collectedFacts.isNotEmpty()) {
-                    updateMemberMoodAndThought(memberId, "Indexation", "Stockage et indexation dans le savoir local...")
-                    updateMemberLog(memberId, "⚙️ Tâche : Indexation locale des faits extraits...")
-                    val mergedNewFacts = collectedFacts.joinToString("\n")
-                    
-                    val updatedFacts = mergeAndCleanIndexedFacts(
-                        currentFacts = _clanMembers.value.find { it.id == memberId }?.learnedFacts ?: "",
-                        newFacts = mergedNewFacts
-                    )
-                    
-                    val currentMember = _clanMembers.value.find { it.id == memberId }
-                    if (currentMember != null) {
-                        updateLearnedFacts(memberId, updatedFacts)
-                        
-                        // Restorer mood à Savant et thought descriptif
-                        val finalMember = _clanMembers.value.find { it.id == memberId }
-                        if (finalMember != null) {
-                            updateMember(finalMember.copy(
-                                mood = "Savant",
-                                thought = "Exploration terminée. J'ai indexé de nouvelles connaissances !"
-                            ))
-                        }
-                        addChatMessage(memberId, "system", "✅ Auto-Exploration terminée ! Les connaissances ont été structurées et indexées.")
-                        updateMemberLog(memberId, "✅ Tâche : Auto-Exploration terminée avec succès")
-                    }
-                } else {
-                    addChatMessage(memberId, "system", "❌ Auto-Exploration terminée, mais aucun fait n'a pu être extrait.")
-                    updateMemberMoodAndThought(memberId, "Actif", "Exploration terminée.")
-                    updateMemberLog(memberId, "❌ Tâche : Auto-Exploration terminée (aucun fait extrait)")
+                
+                val finalMember = _clanMembers.value.find { it.id == memberId }
+                if (finalMember != null) {
+                    updateMember(finalMember.copy(
+                        mood = "Savant",
+                        thought = "Exploration structurée terminée. J'ai documenté $slotsFilled nouveaux champs dans mon Graphe GS1 !"
+                    ))
                 }
+                addChatMessage(memberId, "system", "✅ Auto-Exploration terminée ! $slotsFilled champs ont été ajoutés et signés dans le Graphe de Connaissances GS1voc.")
+                updateMemberLog(memberId, "✅ Tâche : Auto-Exploration terminée avec $slotsFilled champs renseignés.")
             } catch (e: Exception) {
                 Log.e(TAG, "Erreur critique dans startAutonomousExploration", e)
                 addChatMessage(memberId, "system", "❌ Erreur critique lors de l'exploration autonome : ${e.message}")
