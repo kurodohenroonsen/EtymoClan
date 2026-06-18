@@ -32,7 +32,9 @@ object WebScraper {
     data class ScrapeResult(
         val extractedText: String,
         val screenshotPath: String,
-        val detectedLanguage: String
+        val detectedLanguage: String,
+        val consentBlocked: Boolean = false,
+        val sourceUrl: String = ""
     )
 
     suspend fun searchWeb(query: String): List<Pair<String, String>> = withContext(Dispatchers.IO) {
@@ -161,10 +163,9 @@ object WebScraper {
 
                     GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
 
-                    // Page finished loading, wait for dynamic JavaScript execution/rendering
-                    val delayMs = if (urlStr != null && urlStr.contains("google.com/search")) 6000L else 2000L
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        if (hasResumed) return@postDelayed
+                    fun proceedWithCapture() {
+                        if (hasResumed) return
+                        val finalUrl = webView.url ?: url
                         try {
                             val jsQuery = """
                                 (function() {
@@ -180,10 +181,11 @@ object WebScraper {
                                             ),
                                             lang: document.documentElement ? document.documentElement.lang : "",
                                             title: document.title || "",
-                                            text: document.body ? document.body.innerText.substring(0, 8000) : ""
+                                            text: document.body ? document.body.innerText.substring(0, 8000) : "",
+                                            html: document.documentElement ? document.documentElement.outerHTML.substring(0, 200000) : ""
                                         });
                                     } catch(e) {
-                                        return JSON.stringify({ height: 800, lang: "", title: "", text: "" });
+                                        return JSON.stringify({ height: 800, lang: "", title: "", text: "", html: "" });
                                     }
                                 })()
                             """.trimIndent()
@@ -194,6 +196,7 @@ object WebScraper {
                                     var htmlLang = ""
                                     var title = ""
                                     var sampleText = ""
+                                    var pageHtml = ""
 
                                     if (jsResult != null && jsResult != "null") {
                                         try {
@@ -203,6 +206,7 @@ object WebScraper {
                                             htmlLang = json.optString("lang", "").lowercase()
                                             title = json.optString("title", "")
                                             sampleText = json.optString("text", "")
+                                            pageHtml = json.optString("html", "")
                                         } catch (e: Exception) {
                                             Log.w(TAG, "Error decoding JS evaluation result", e)
                                         }
@@ -285,13 +289,27 @@ object WebScraper {
                                                     val fullText = ocrResult.text
                                                     Log.d(TAG, "OCR complete. Text length: ${fullText.length}")
 
-                                                    val rawText = if (sampleText.trim().isNotEmpty()) sampleText else fullText
-                                                    val cleanedText = cleanWebpageText(rawText)
+                                                    val rawText = if (fullText.trim().isNotEmpty()) fullText else sampleText
+                                                    val isConsent = isConsentWall(finalUrl, rawText, pageHtml)
+                                                    val cleanedText = if (isConsent) "" else cleanWebpageText(rawText)
+
+                                                    if (isConsent) {
+                                                        Log.w(TAG, "CONSENT WALL détecté — l'OCR ne contient PAS le vrai texte AI Mode. URL=$finalUrl")
+                                                        val dbgDir = File(context.getExternalFilesDir(null), "debug_consent")
+                                                        dbgDir.mkdirs()
+                                                        val dbgFile = File(dbgDir, "consent_${System.currentTimeMillis()}.html")
+                                                        dbgFile.writeText(pageHtml)
+                                                        Log.w(TAG, "HTML de consentement dumpé : ${dbgFile.absolutePath} (${pageHtml.length} chars)")
+                                                        // logcat tronque ~4000 chars/ligne -> on logge par tranches (6 max)
+                                                        pageHtml.chunked(3500).take(6).forEachIndexed { i, c -> Log.w(TAG, "CONSENT_HTML[$i]: $c") }
+                                                    }
 
                                                     resumeOnce(Result.success(ScrapeResult(
                                                         extractedText = cleanedText,
                                                         screenshotPath = screenshotFile.absolutePath,
-                                                        detectedLanguage = detectedLang
+                                                        detectedLanguage = detectedLang,
+                                                        consentBlocked = isConsent,
+                                                        sourceUrl = url
                                                     )))
                                                 } catch (e: Exception) {
                                                     Log.e(TAG, "OCR/LanguageID background task failed", e)
@@ -312,7 +330,43 @@ object WebScraper {
                             Log.e(TAG, "WebView rendering screenshot failed", e)
                             resumeOnce(Result.failure(e))
                         }
-                    }, delayMs)
+                    }
+
+                    val urlStrStr = urlStr ?: ""
+                    if (urlStrStr.contains("udm=50")) {
+                        val startTime = System.currentTimeMillis()
+                        // Stabilisation check for AI mode (Gemini streaming output)
+                        // Interval of 600ms is used because it corresponds to the typical pause between Gemini streaming chunks.
+                        fun checkStabilization(lastLength: Int) {
+                            if (hasResumed) return
+                            val elapsed = System.currentTimeMillis() - startTime
+                            if (elapsed >= 4000L) { // Plafond de 4s
+                                Log.d(TAG, "Plafond de stabilisation de 4s atteint pour udm=50. Capture en cours.")
+                                proceedWithCapture()
+                                return
+                            }
+                            webView.evaluateJavascript("(function() { return document.body ? document.body.innerText.length : 0; })()") { resStr ->
+                                if (hasResumed) return@evaluateJavascript
+                                val currentLength = resStr?.toIntOrNull() ?: 0
+                                if (lastLength >= 0 && currentLength == lastLength) {
+                                    Log.d(TAG, "Stabilisation de document.body.innerText.length atteinte à $currentLength. Capture en cours.")
+                                    proceedWithCapture()
+                                } else {
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        checkStabilization(currentLength)
+                                    }, 600L) // Intervalle de ~600 ms entre deux mesures
+                                }
+                            }
+                        }
+                        checkStabilization(-1)
+                    } else {
+                        val delayMs = if (urlStrStr.contains("google.com/search")) 6000L else 2000L
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (hasResumed) return@postDelayed
+                            proceedWithCapture()
+                        }, delayMs)
+                    }
+
                 }
 
                 @Suppress("DEPRECATION")
@@ -425,4 +479,55 @@ object WebScraper {
         }
         return url
     }
+
+    suspend fun harvest(context: Context, query: String): ScrapeResult {
+        Log.d(TAG, "Harvesting for query: '$query'")
+        val encodedQuery = URLEncoder.encode(query, "UTF-8")
+        val aiModeUrl = "https://www.google.com/search?q=$encodedQuery&udm=50&hl=fr&gl=BE"
+        
+        var result = try {
+            scrapeAndOcrPage(context, aiModeUrl)
+        } catch (e: Exception) {
+            Log.e(TAG, "AI Mode search failed, trying fallback", e)
+            null
+        }
+
+        val textLength = result?.extractedText?.length ?: 0
+        if (result == null || result.consentBlocked || textLength < 40) {
+            Log.w(TAG, "AI Mode search result was null, consentBlocked, or insufficient (length=$textLength). Falling back to normal search...")
+            val links = searchWeb(query)
+            if (links.isNotEmpty()) {
+                val firstLink = links.first().second
+                Log.d(TAG, "Harvesting fallback: scraping first link: $firstLink")
+                try {
+                    result = scrapeAndOcrPage(context, firstLink)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Fallback scraping failed for URL: $firstLink", e)
+                }
+            } else {
+                Log.e(TAG, "No fallback links found for query: '$query'")
+            }
+        }
+        
+        return result ?: ScrapeResult("", "", "en", sourceUrl = aiModeUrl)
+    }
+
+    private fun isConsentWall(finalUrl: String?, ocrText: String, html: String): Boolean {
+        val u = (finalUrl ?: "").lowercase()
+        if (u.contains("consent.google.") || u.contains("/consent")) return true
+        val needles = listOf(
+            "avant d'accéder à google", "voordat je verdergaat", "tout accepter",
+            "alles accepteren", "accept all", "reject all", "before you continue",
+            "we use cookies", "nous utilisons des cookies", "gérer les cookies"
+        )
+        val hay = (ocrText + " " + html).lowercase()
+        return needles.any { hay.contains(it) }
+    }
+
+    // TODO: quand isConsentWall est vrai, injecter du JS pour cliquer "Tout accepter"
+    // (multi-sélecteurs à déterminer en analysant les fichiers debug_consent/*.html :
+    //  button[aria-label*=accept], form[action*=consent] button, etc.),
+    // attendre le re-render, puis relancer capture+OCR.
+    // fun dismissConsentAndRetry(webView: WebView, onDone: () -> Unit) { /* à venir */ }
 }
+

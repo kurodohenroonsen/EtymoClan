@@ -1380,14 +1380,10 @@ class GemmaTamagotchiEngine(private val context: Context) {
             override val modelId: String = "gemma-4-E4B-it.litertlm"
 
             override suspend fun searchAndScrape(query: String): be.heyman.android.etymoclan.agentcore.EnrichmentHooks.Evidence? {
-                Log.d(TAG, "Quest: Recherche et Scraping pour '$query'")
-                val results = WebScraper.searchWeb(query)
-                if (results.isEmpty()) return null
-                val bestUrl = results.first().second
+                Log.d(TAG, "Quest: Harvesting pour '$query'")
                 return try {
-                    val res = WebScraper.scrapeAndOcrPage(context, bestUrl) { sysPrompt, userPrompt ->
-                        runInference(sysPrompt, userPrompt)
-                    }
+                    val res = WebScraper.harvest(context, query)
+                    if (res.extractedText.isEmpty()) return null
                     val cid = if (res.screenshotPath.isNotEmpty()) {
                         runCatching {
                             val p = res.screenshotPath
@@ -1400,13 +1396,14 @@ class GemmaTamagotchiEngine(private val context: Context) {
                     } else null
                     be.heyman.android.etymoclan.agentcore.EnrichmentHooks.Evidence(
                         text = res.extractedText,
-                        sourceUrl = bestUrl,
+                        sourceUrl = res.sourceUrl,
                         screenshotCid = cid
                     )
                 } catch (e: Exception) {
                     null
                 }
             }
+
 
             override suspend fun extractWithLlm(prompt: String): String {
                 Log.d(TAG, "Quest: Extraction LLM...")
