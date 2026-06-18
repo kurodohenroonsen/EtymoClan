@@ -1388,15 +1388,16 @@ class GemmaTamagotchiEngine(private val context: Context) {
                     val res = WebScraper.scrapeAndOcrPage(context, bestUrl) { sysPrompt, userPrompt ->
                         runInference(sysPrompt, userPrompt)
                     }
-                    val cid = res.screenshotPath?.let { p ->
+                    val cid = if (res.screenshotPath.isNotEmpty()) {
                         runCatching {
+                            val p = res.screenshotPath
                             val bytes = java.io.File(p).readBytes()
                             val h = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
                             val finalCid = "urn:cid:" + h.joinToString("") { "%02x".format(it) }
                             screenshotPathByCid[finalCid] = p
                             finalCid
                         }.getOrNull()
-                    }
+                    } else null
                     be.heyman.android.etymoclan.agentcore.EnrichmentHooks.Evidence(
                         text = res.extractedText,
                         sourceUrl = bestUrl,
