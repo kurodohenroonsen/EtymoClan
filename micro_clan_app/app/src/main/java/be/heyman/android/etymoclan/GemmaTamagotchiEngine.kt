@@ -1958,6 +1958,16 @@ class GemmaTamagotchiEngine(private val context: Context) {
         }
     }
 
+    fun isSlotInNfcPayload(nfcPayload: String, label: String, predicate: String): Boolean {
+        if (nfcPayload.isEmpty() || !nfcPayload.trim().startsWith("{")) return false
+        return try {
+            val json = org.json.JSONObject(nfcPayload)
+            getValueFromSchema(json, label, predicate) != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun startAutonomousExploration(memberId: String) {
         engineScope.launch {
             try {
@@ -1988,40 +1998,65 @@ class GemmaTamagotchiEngine(private val context: Context) {
                         continue
                     }
                     
-                    addChatMessage(memberId, "system", "📁 Exploration du thème : ${theme.labelFr} (Recherche groupée pour : ${themeSlots.joinToString(", ") { it.label }})")
-                    updateMemberMoodAndThought(memberId, "Recherche", "Recherche groupée pour le thème ${theme.labelFr}...")
-                    
-                    val combinedQuery = "${currentMemberForTheme.type}, ${themeSlots.joinToString(", ") { it.label }}"
-                    addChatMessage(memberId, "ai", "Je lance la recherche groupée sur Google AI Mode (udm=50) : '$combinedQuery'...")
-                    
-                    val evidence = harvestEvidence(memberId, combinedQuery)
-                    if (evidence == null) {
-                        addChatMessage(memberId, "system", "❌ Impossible de récupérer des informations pour le thème ${theme.labelFr}")
-                        for (slot in themeSlots) {
-                            failed.add(slot.predicate)
-                        }
-                        continue
+                    val (nfcSlots, webSlots) = themeSlots.partition { slot ->
+                        isSlotInNfcPayload(currentMemberForTheme.nfcPayload, slot.label, slot.predicate) && 
+                        slot.predicate != "gs1:price" && slot.predicate != "gs1:makesOffer"
                     }
-                    
-                    for ((index, slot) in themeSlots.withIndex()) {
+
+                    // Direct resolution for slots present in the NFC payload
+                    for (slot in nfcSlots) {
                         val activeMember = _clanMembers.value.find { it.id == memberId } ?: break
-                        
-                        // Check if the slot was somehow filled during this theme run (e.g. dynamic change)
                         val checkFrame = builder.build(activeMember.gs1Class, activeMember.pollens)
                         val checkSlot = checkFrame.slots.find { it.predicate == slot.predicate }
                         if (checkSlot?.isFilled == true) continue
                         
-                        addChatMessage(memberId, "ai", "Je lance l'extraction LLM pour le champ : ${slot.label} (Prédicat: ${slot.predicate}) [${index + 1}/${themeSlots.size}]...")
-                        updateMemberMoodAndThought(memberId, "Réflexion", "Extraction de ${slot.label}...")
+                        addChatMessage(memberId, "ai", "Extraction directe NFC pour le champ : ${slot.label}...")
+                        updateMemberMoodAndThought(memberId, "Réflexion", "Extraction NFC de ${slot.label}...")
                         
-                        val resultText = runKnowledgeQuestTickForSlot(memberId, slot.predicate, preFetchedEvidence = evidence)
+                        val resultText = runKnowledgeQuestTickForSlot(memberId, slot.predicate, preFetchedEvidence = null)
                         addChatMessage(memberId, "system", "Résultat : $resultText")
                         
                         if (resultText.startsWith("Succès")) {
                             slotsFilled++
                         }
+                        kotlinx.coroutines.delay(500)
+                    }
+
+                    // Web resolution for slots NOT present in the NFC payload
+                    if (webSlots.isNotEmpty()) {
+                        addChatMessage(memberId, "system", "📁 Exploration du thème : ${theme.labelFr} (Recherche groupée pour : ${webSlots.joinToString(", ") { it.label }})")
+                        updateMemberMoodAndThought(memberId, "Recherche", "Recherche groupée pour le thème ${theme.labelFr}...")
                         
-                        kotlinx.coroutines.delay(1500)
+                        val combinedQuery = "${currentMemberForTheme.type}, ${webSlots.joinToString(", ") { it.label }}"
+                        addChatMessage(memberId, "ai", "Je lance la recherche groupée sur Google AI Mode (udm=50) : '$combinedQuery'...")
+                        
+                        val evidence = harvestEvidence(memberId, combinedQuery)
+                        if (evidence == null) {
+                            addChatMessage(memberId, "system", "❌ Impossible de récupérer des informations pour le thème ${theme.labelFr}")
+                            for (slot in webSlots) {
+                                failed.add(slot.predicate)
+                            }
+                            continue
+                        }
+                        
+                        for ((index, slot) in webSlots.withIndex()) {
+                            val activeMember = _clanMembers.value.find { it.id == memberId } ?: break
+                            val checkFrame = builder.build(activeMember.gs1Class, activeMember.pollens)
+                            val checkSlot = checkFrame.slots.find { it.predicate == slot.predicate }
+                            if (checkSlot?.isFilled == true) continue
+                            
+                            addChatMessage(memberId, "ai", "Je lance l'extraction LLM pour le champ : ${slot.label} (Prédicat: ${slot.predicate}) [${index + 1}/${webSlots.size}]...")
+                            updateMemberMoodAndThought(memberId, "Réflexion", "Extraction de ${slot.label}...")
+                            
+                            val resultText = runKnowledgeQuestTickForSlot(memberId, slot.predicate, preFetchedEvidence = evidence)
+                            addChatMessage(memberId, "system", "Résultat : $resultText")
+                            
+                            if (resultText.startsWith("Succès")) {
+                                slotsFilled++
+                            }
+                            
+                            kotlinx.coroutines.delay(1500)
+                        }
                     }
                 }
                 

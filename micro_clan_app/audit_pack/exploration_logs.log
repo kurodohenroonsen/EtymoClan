@@ -1,0 +1,128 @@
+--------- beginning of main
+06-18 09:04:29.731  7377  7549 I KnowledgeQuest: Direct extraction succeeded from NFC payload for Functional Name: Beer
+06-18 09:04:29.733  7377  7549 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Functional Name' complété avec succès (Beer).
+06-18 09:04:30.289  7377  7548 I KnowledgeQuest: Direct extraction succeeded from NFC payload for GTIN: 5410702000133
+06-18 09:04:30.291  7377  7548 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'GTIN' complété avec succès (5410702000133).
+06-18 09:04:30.307  7377  7377 D MicroClan_MainActivity: TTS Offline prononce : 'Extraction directe NFC pour le champ : GTIN...'
+06-18 09:04:30.835  7377  7549 I KnowledgeQuest: Direct extraction succeeded from NFC payload for Has Brand: Brasserie Dupont
+06-18 09:04:30.836  7377  7549 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Has Brand' complété avec succès (Brasserie Dupont).
+06-18 09:04:30.842  7377  7377 D MicroClan_MainActivity: TTS Offline prononce : 'Extraction directe NFC pour le champ : Has Brand...'
+06-18 09:04:31.381  7377  7548 I KnowledgeQuest: Direct extraction succeeded from NFC payload for Product Description: Bière belge de tradition de fermentation haute, refermentée en bouteille. Robe blonde dorée, arômes de houblon fin avec une amertume équilibrée et une texture veloutée.
+06-18 09:04:31.383  7377  7548 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Product Description' complété avec succès (Bière belge de tradition de fermentation haute, refermentée en bouteille. Robe blonde dorée, arômes de houblon fin avec une amertume équilibrée et une texture veloutée.).
+06-18 09:04:31.440  7377  7377 D MicroClan_MainActivity: TTS Offline prononce : 'Extraction directe NFC pour le champ : Product Description...'
+06-18 09:04:31.945  7377  7548 I KnowledgeQuest: Direct extraction succeeded from NFC payload for Alcoholic Beverage Sub-region: 8.5% ABV
+06-18 09:04:31.947  7377  7548 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Alcoholic Beverage Sub-region' complété avec succès (8.5% ABV).
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine:     *   **Fraîcheur :** : 40% (Note : J'ai noté 40% dans ma description, mais vous avez indiqué 0% dans votre message. Je vais vérifier cela.)
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine:     *   **Volume Restant :** : 30% (Note : J'ai noté 30% dans ma description, mais vous avez indiqué 0% dans votre message.)
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: 
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: **Commentaire sur ma fiche produit :**
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: 
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: Je suis une bière de caractère, avec une belle robe dorée et un équilibre parfait entre l'amertume du houblon et la douceur de la bière. Je suis prête à être dégustée !
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: 
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: **Note importante :** Il semble y avoir une petite confusion sur les chiffres de mes statistiques actuelles. Dans ma fiche, je suis à **40% de fraîcheur** et **30% de volume restant. Si vous voulez que je mette à jour ces chiffres, dites-le moi !
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: 
+06-18 09:04:32.285  7377  7377 I MicroClan_Engine: Que souhaitez-vous que je fasse ensuite ? Voulez-vous que je cherche des informations sur moi, ou que je mette à jour mes statistiques ?
+06-18 09:04:32.448  7377  7547 D MicroClan_Engine: harvestEvidence pour 'Moinette Blonde, Country Of Origin Statement, Has Country Of Assembly, Has Country Of Last Processing'
+06-18 09:04:32.449  7377  7547 D MicroClan_WebScraper: Harvesting for query: 'Moinette Blonde, Country Of Origin Statement, Has Country Of Assembly, Has Country Of Last Processing'
+06-18 09:04:32.535  7377  7377 I MicroClan_WebScraper: Loading URL in WebView: https://www.google.com/search?q=Moinette+Blonde%2C+Country+Of+Origin+Statement%2C+Has+Country+Of+Assembly%2C+Has+Country+Of+Last+Processing&udm=50&hl=fr&gl=BE
+06-18 09:04:38.360  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 1679. Capture en cours.
+06-18 09:04:38.404  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x4619 (heightDp=2053)
+06-18 09:04:38.852  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 1679. Capture en cours.
+06-18 09:04:38.853  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 1679. Capture en cours.
+06-18 09:04:38.895  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x4821 (heightDp=2143)
+06-18 09:04:38.922  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x4821 (heightDp=2143)
+06-18 09:04:39.175  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766278963.png
+06-18 09:04:39.192  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 1679. Capture en cours.
+06-18 09:04:39.193  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 1679. Capture en cours.
+06-18 09:04:39.197  7377  7772 I MicroClan_WebScraper: Detected language: fr
+06-18 09:04:39.214  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x5024 (heightDp=2233)
+06-18 09:04:39.239  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x5024 (heightDp=2233)
+06-18 09:04:39.650  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766279442.png
+06-18 09:04:39.654  7377  7808 I MicroClan_WebScraper: Detected language: fr
+06-18 09:04:39.883  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766279673.png
+06-18 09:04:39.885  7377  7837 I MicroClan_WebScraper: Detected language: fr
+06-18 09:04:40.145  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766279927.png
+06-18 09:04:40.146  7377  7843 I MicroClan_WebScraper: Detected language: fr
+06-18 09:04:40.301  7377  7772 D MicroClan_WebScraper: OCR complete. Text length: 1615
+06-18 09:04:40.391  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766280175.png
+06-18 09:04:40.399  7377  7844 I MicroClan_WebScraper: Detected language: fr
+06-18 09:04:40.615  7377  7772 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766280342.png
+06-18 09:04:40.665  7377  7547 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde Country Of Origin Statement'
+06-18 09:04:40.665  7377  7547 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:04:41.058  7377  7808 D MicroClan_WebScraper: OCR complete. Text length: 1617
+06-18 09:04:41.328  7377  7808 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766281099.png
+06-18 09:04:41.757  7377  7837 D MicroClan_WebScraper: OCR complete. Text length: 1617
+06-18 09:04:42.028  7377  7837 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766281806.png
+06-18 09:04:42.444  7377  7843 D MicroClan_WebScraper: OCR complete. Text length: 1643
+06-18 09:04:42.726  7377  7843 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766282490.png
+06-18 09:04:43.125  7377  7844 D MicroClan_WebScraper: OCR complete. Text length: 1643
+06-18 09:04:43.400  7377  7844 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766283175.png
+06-18 09:04:43.495  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Country Of Origin Statement' complété avec succès (Belgique).
+06-18 09:04:45.058  7377  7564 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde Has Country Of Assembly'
+06-18 09:04:45.058  7377  7564 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:04:48.660  7377  7547 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Has Country Of Assembly' complété avec succès (type: gs1:Country.
+06-18 09:04:48.660  7377  7547 D MicroClan_Engine: Belgique).
+06-18 09:04:53.508  7377  7547 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Has Country Of Last Processing' complété avec succès (type: gs1:Country. Belgique).
+06-18 09:05:15.327  7377  7548 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Carbohydrates Per Nutrient Basis Quantity' complété avec succès (2,5 à 3,5g).
+06-18 09:05:21.263  7377  7549 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Allergen Statement' complété avec succès (Eau, malt d'orge, sucres, levure, houblons).
+06-18 09:05:32.637  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Has Allergen' complété avec succès (Eau, malt d'orge, sucres, levure, houblons).
+06-18 09:05:44.475  7377  7547 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Net content' complété avec succès (33 cl).
+06-18 09:05:55.815  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Net area' complété avec succès (5,6 + cm).
+06-18 09:06:00.428  7377  7547 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Boucle Quête : Champ 'Net weight' complété avec succès (0,39 + kg).
+06-18 09:06:36.852  7377  8488 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde First Freeze Date'
+06-18 09:06:36.852  7377  8488 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:06:37.061  7377  8576 D MicroClan_WebScraper: OCR complete. Text length: 1987
+06-18 09:06:37.345  7377  8576 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766397108.png
+06-18 09:06:37.740  7377  8578 D MicroClan_WebScraper: OCR complete. Text length: 1988
+06-18 09:06:38.049  7377  8578 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766397791.png
+06-18 09:06:38.441  7377  8579 D MicroClan_WebScraper: OCR complete. Text length: 1999
+06-18 09:06:38.745  7377  8579 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766398493.png
+06-18 09:06:39.200  7377  8580 D MicroClan_WebScraper: OCR complete. Text length: 1999
+06-18 09:06:39.508  7377  8580 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766399247.png
+06-18 09:06:39.564  7377  7547 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Information pour le champ 'First Freeze Date' introuvable sur le web.
+06-18 09:06:41.101  7377  7547 D MicroClan_Engine: harvestEvidence pour 'Moinette Blonde, Compulsory Additional Information, Consumer Package Disclaimer, Consumer Safety Information, Consumer Sales Condition Code'
+06-18 09:06:41.101  7377  7547 D MicroClan_WebScraper: Harvesting for query: 'Moinette Blonde, Compulsory Additional Information, Consumer Package Disclaimer, Consumer Safety Information, Consumer Sales Condition Code'
+06-18 09:06:41.123  7377  7377 I MicroClan_WebScraper: Loading URL in WebView: https://www.google.com/search?q=Moinette+Blonde%2C+Compulsory+Additional+Information%2C+Consumer+Package+Disclaimer%2C+Consumer+Safety+Information%2C+Consumer+Sales+Condition+Code&udm=50&hl=fr&gl=BE
+06-18 09:06:47.391  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 2663. Capture en cours.
+06-18 09:06:47.429  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x6356 (heightDp=2825)
+06-18 09:06:47.465  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 2663. Capture en cours.
+06-18 09:06:47.466  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 2663. Capture en cours.
+06-18 09:06:47.490  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x6558 (heightDp=2915)
+06-18 09:06:47.496  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x6558 (heightDp=2915)
+06-18 09:06:47.870  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 2663. Capture en cours.
+06-18 09:06:47.871  7377  7377 D MicroClan_WebScraper: Stabilisation de document.body.innerText.length atteinte à 2663. Capture en cours.
+06-18 09:06:47.912  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x6761 (heightDp=3005)
+06-18 09:06:47.938  7377  7377 D MicroClan_WebScraper: WebView dimensions from JS: 1080x6761 (heightDp=3005)
+06-18 09:06:48.268  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766407985.png
+06-18 09:06:48.270  7377  8677 I MicroClan_WebScraper: Detected language: fr
+06-18 09:06:48.595  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766408310.png
+06-18 09:06:48.596  7377  8717 I MicroClan_WebScraper: Detected language: fr
+06-18 09:06:48.908  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766408624.png
+06-18 09:06:48.909  7377  8721 I MicroClan_WebScraper: Detected language: fr
+06-18 09:06:48.940  7377  8677 D MicroClan_WebScraper: OCR complete. Text length: 2587
+06-18 09:06:49.261  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766408971.png
+06-18 09:06:49.264  7377  8722 I MicroClan_WebScraper: Detected language: fr
+06-18 09:06:49.422  7377  8677 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766408986.png
+06-18 09:06:49.608  7377  7377 D MicroClan_WebScraper: Screenshot saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_1781766409301.png
+06-18 09:06:49.609  7377  8723 I MicroClan_WebScraper: Detected language: fr
+06-18 09:06:49.659  7377  7547 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde Compulsory Additional Information'
+06-18 09:06:49.659  7377  7547 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:06:49.752  7377  8717 D MicroClan_WebScraper: OCR complete. Text length: 2607
+06-18 09:06:50.130  7377  8717 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766409812.png
+06-18 09:06:50.476  7377  8721 D MicroClan_WebScraper: OCR complete. Text length: 2607
+06-18 09:06:50.839  7377  8721 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766410527.png
+06-18 09:06:51.264  7377  8722 D MicroClan_WebScraper: OCR complete. Text length: 2627
+06-18 09:06:51.651  7377  8722 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766411330.png
+06-18 09:06:51.986  7377  8723 D MicroClan_WebScraper: OCR complete. Text length: 2627
+06-18 09:06:52.351  7377  8723 D MicroClan_WebScraper: OCR Screenshot overlay saved successfully to: /storage/emulated/0/Android/data/be.heyman.android.etymoclan/files/screenshots/screenshot_ocr_1781766412042.png
+06-18 09:06:52.884  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Information pour le champ 'Compulsory Additional Information' introuvable sur le web.
+06-18 09:06:54.429  7377  7564 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde Consumer Package Disclaimer'
+06-18 09:06:54.429  7377  7564 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:07:02.919  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Champ 'Consumer Package Disclaimer' complété avec succès (La vente d'alcool est soumise à des restrictions strictes. La consommation de Moinette Blonde (en raison de son titrage à 8,5 %) est déconseillée aux femmes enceintes et strictement interdite aux mineurs.).
+06-18 09:07:04.468  7377  7564 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde Consumer Safety Information'
+06-18 09:07:04.468  7377  7564 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:07:07.054  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Information pour le champ 'Consumer Safety Information' introuvable sur le web.
+06-18 09:07:08.599  7377  7564 D MicroClan_Engine: Quest: Utilisation des preuves pré-récupérées pour 'Moinette Blonde Consumer Sales Condition Code'
+06-18 09:07:08.600  7377  7564 D MicroClan_Engine: Quest: Extraction LLM...
+06-18 09:07:13.233  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : Champ 'Consumer Sales Condition Code' complété avec succès (gs1:ConsumerSalesConditionsCode-RESTRICTED_TO_SELL_18).
+06-18 09:07:14.737  7377  7564 D MicroClan_Engine: Nouveau log pour 93bb57bd-d785-4bdb-909f-24ce6fac1f02 : ✅ Tâche : Auto-Exploration terminée avec 19 champs renseignés.
