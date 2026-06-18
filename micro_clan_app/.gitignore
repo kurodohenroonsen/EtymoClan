@@ -18,3 +18,4 @@ local.properties
 window_dump*.xml
 *.uix
 .kotlin/
+debug_consent/
