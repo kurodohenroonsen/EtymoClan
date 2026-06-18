@@ -60,6 +60,9 @@ data class ClanMember(
     val iu: String = "",
     val did: String = "",
     val publicKey: java.security.PublicKey? = null,
+    // TODO: Tension avec le futur "don de membre" (pack radar) :
+    // Une clé non-exportable du Keystore ne peut pas être transférée, donc le don exige des clés gérées par l'app et chiffrées au repos.
+    // Si persistance ajoutée, persiste seulement les octets PKCS#8 de la clé CHIFFRÉS via une master key AndroidKeyStore (EncryptedSharedPreferences ou chiffrement AES-GCM dont la clé est dans le Keystore).
     val privateKey: java.security.PrivateKey? = null,
     val pollens: List<Pollen> = emptyList(),
     val level: Int = 0,
@@ -81,6 +84,7 @@ class GemmaTamagotchiEngine(private val context: Context) {
     private val _clanMembers = MutableStateFlow<List<ClanMember>>(emptyList())
     val clanMembers: StateFlow<List<ClanMember>> = _clanMembers
     private val failedPredicatesByMember = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
+    val screenshotPathByCid = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private val _modelState = MutableStateFlow<ModelState>(ModelState.Checking)
     val modelState: StateFlow<ModelState> = _modelState
@@ -1384,10 +1388,19 @@ class GemmaTamagotchiEngine(private val context: Context) {
                     val res = WebScraper.scrapeAndOcrPage(context, bestUrl) { sysPrompt, userPrompt ->
                         runInference(sysPrompt, userPrompt)
                     }
+                    val cid = res.screenshotPath?.let { p ->
+                        runCatching {
+                            val bytes = java.io.File(p).readBytes()
+                            val h = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+                            val finalCid = "urn:cid:" + h.joinToString("") { "%02x".format(it) }
+                            screenshotPathByCid[finalCid] = p
+                            finalCid
+                        }.getOrNull()
+                    }
                     be.heyman.android.etymoclan.agentcore.EnrichmentHooks.Evidence(
                         text = res.extractedText,
                         sourceUrl = bestUrl,
-                        screenshotCid = res.screenshotPath
+                        screenshotCid = cid
                     )
                 } catch (e: Exception) {
                     null

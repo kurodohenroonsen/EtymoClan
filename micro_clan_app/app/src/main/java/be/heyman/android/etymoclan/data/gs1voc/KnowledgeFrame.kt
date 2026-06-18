@@ -47,7 +47,8 @@ data class KnowledgeSlot(
     val value: String? = null,      // valeur remplie (objet du triplet)
     val pollenIds: List<String> = emptyList(), // Pollens qui renseignent ce slot
     val sourceCount: Int = 0,       // nb de sources distinctes (via AITrace.inputs)
-    val isCodeList: Boolean = false // valeur contrôlée ?
+    val isCodeList: Boolean = false, // valeur contrôlée ?
+    val priorityRank: Int? = null
 ) {
     val isFilled: Boolean get() = status != SlotStatus.EMPTY
 }
@@ -63,6 +64,16 @@ enum class KnowledgeTheme(val labelFr: String, val keywords: List<String>) {
     OTHER("Autres", emptyList());
 
     companion object {
+        fun fromDbLabel(s: String?): KnowledgeTheme = when (s?.lowercase()) {
+            "identity" -> IDENTITY
+            "origin" -> ORIGIN
+            "nutrition" -> NUTRITION
+            "allergens" -> ALLERGENS
+            "packaging" -> PACKAGING
+            "dates" -> DATES
+            else -> OTHER
+        }
+
         /** Classe une propriété dans un thème par mot-clé (heuristique). */
         fun forPredicate(curie: String): KnowledgeTheme {
             val name = curie.substringAfter(":").lowercase()
@@ -100,5 +111,9 @@ data class KnowledgeFrame(
 
     /** Le prochain slot à remplir (priorité : thèmes prioritaires d'abord). */
     fun nextEmptySlot(excludePredicates: Set<String> = emptySet()): KnowledgeSlot? =
-        slots.filter { !it.isFilled && it.predicate !in excludePredicates }.minByOrNull { it.theme.ordinal }
+        slots.filter { !it.isFilled && it.predicate !in excludePredicates }
+             .minWithOrNull(compareBy(
+                 { it.priorityRank ?: Int.MAX_VALUE },
+                 { it.theme.ordinal },
+                 { it.label }))
 }

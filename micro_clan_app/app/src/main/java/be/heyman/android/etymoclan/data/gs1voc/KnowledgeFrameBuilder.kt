@@ -34,7 +34,7 @@ class KnowledgeFrameBuilder(private val repo: Gs1VocRepository) {
                 .groupBy { it.body.predicate!! }
 
         val slots = props.mapNotNull { p ->
-            val theme = KnowledgeTheme.forPredicate(p.curie)
+            val theme = p.theme?.let { KnowledgeTheme.fromDbLabel(it) } ?: KnowledgeTheme.forPredicate(p.curie)
             if (themeFilter.isNotEmpty() && theme !in themeFilter) return@mapNotNull null
 
             val related = byPredicate[p.curie].orEmpty()
@@ -55,7 +55,8 @@ class KnowledgeFrameBuilder(private val repo: Gs1VocRepository) {
                 value = value,
                 pollenIds = related.map { it.id },
                 sourceCount = sources.size,
-                isCodeList = p.rangeIsCodeList
+                isCodeList = p.rangeIsCodeList,
+                priorityRank = p.priorityRank
             )
         }
 

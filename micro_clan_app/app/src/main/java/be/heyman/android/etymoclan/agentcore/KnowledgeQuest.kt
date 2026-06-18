@@ -5,6 +5,7 @@ import be.heyman.android.etymoclan.crypto.PollenFactory
 import be.heyman.android.etymoclan.data.gs1voc.Gs1VocRepository
 import be.heyman.android.etymoclan.data.gs1voc.KnowledgeFrame
 import be.heyman.android.etymoclan.data.gs1voc.KnowledgeSlot
+import be.heyman.android.etymoclan.data.gs1voc.SlotValueValidator
 
 /**
  * Remplace l'ancien `enrichProfile` (un Pollen fourre-tout) par une COMPLÉTION
@@ -77,7 +78,7 @@ class KnowledgeQuest(
         val extracted = hooks.extractWithLlm(extractionPrompt).trim()
         val durationMs = System.currentTimeMillis() - start
 
-        if (extracted.isEmpty() || extracted.equals("ABSENT", ignoreCase = true)) {
+        if (prop == null || !SlotValueValidator.isValid(prop, extracted, allowedValues)) {
             return Result.NotFound(slot)
         }
 
