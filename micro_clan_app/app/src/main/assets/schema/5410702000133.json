@@ -6,6 +6,7 @@
   "description": "Bière belge de tradition de fermentation haute, refermentée en bouteille. Robe blonde dorée, arômes de houblon fin avec une amertume équilibrée et une texture veloutée.",
   "category": "Beverages / Beer",
   "model": "Moinette Blonde 33cl",
+  "gtin": "5410702000133",
   "productionDate": "2026-05-10",
   "manufacturer": {
     "@type": "Organization",

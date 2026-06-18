@@ -46,6 +46,18 @@ class KnowledgeQuest(
         excludePredicates: Set<String> = emptySet()
     ): Result {
         val slot = frame.nextEmptySlot(excludePredicates) ?: return Result.FrameComplete
+        return fillSpecificSlot(memberIu, memberDid, privateKey, frame, productName, slot.predicate)
+    }
+
+    suspend fun fillSpecificSlot(
+        memberIu: String,
+        memberDid: String,
+        privateKey: java.security.PrivateKey,
+        frame: KnowledgeFrame,
+        productName: String,
+        slotPredicate: String
+    ): Result {
+        val slot = frame.slots.find { it.predicate == slotPredicate } ?: return Result.FrameComplete
 
         // 2. Format attendu (autorité GS1)
         val prop = repo.getProperty(slot.predicate)
@@ -86,6 +98,7 @@ class KnowledgeQuest(
         val traceInputs = buildList {
             evidence.sourceUrl?.let { add("url:$it") }
             evidence.screenshotCid?.let { add("file:$it") }
+            evidence.ocrScreenshotCid?.let { add("file:$it") }
             if (isEmpty()) add("urn:cid:source_web_scraping")
         }
         val pollen = PollenFactory.createAndSignPollen(
@@ -119,6 +132,7 @@ interface EnrichmentHooks {
     data class Evidence(
         val text: String,
         val sourceUrl: String?,
-        val screenshotCid: String?   // CID du screenshot (preuve visuelle ancrée)
+        val screenshotCid: String?,   // CID du screenshot (preuve visuelle ancrée)
+        val ocrScreenshotCid: String? = null // CID du screenshot OCR textuel
     )
 }

@@ -222,46 +222,50 @@ fun PollenCard(pollen: Pollen, themeColor: Color, onImageClick: (File) -> Unit) 
                     Text("• Prompt : \"${trace.prompt}\"", color = Color.Gray, fontSize = 10.sp)
                     if (trace.inputs.isNotEmpty()) {
                         Text("• Entrées : ${trace.inputs.joinToString(", ")}", color = Color.Gray, fontSize = 10.sp)
-                    }
-
-                    // Render local screenshot thumbnail if present in inputs
-                    val screenshotInput = trace.inputs.firstOrNull { it.startsWith("file:") }
-                    if (screenshotInput != null) {
-                        val filePath = screenshotInput.substringAfter("file:")
-                        val file = File(filePath)
-                        if (file.exists()) {
-                            val thumbnailBitmap = remember(file) {
-                                try {
-                                    android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                                } catch (e: Exception) {
-                                    null
-                                }
-                            }
-                            if (thumbnailBitmap != null) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                val titleText = if (pollen.body.type == "EvolutionAvatar") {
-                                    "Avatar d'Évolution (cliquer pour zoomer) :"
+                        
+                        // Render local screenshot thumbnails if present in inputs
+                        val screenshotInputs = trace.inputs.filter { it.startsWith("file:") }
+                        if (screenshotInputs.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = if (pollen.body.type == "EvolutionAvatar") "Avatars d'Évolution (cliquer pour zoomer) :" else "Preuves Visuelles / OCR (cliquer pour zoomer) :",
+                                color = Color(0xFFFFD54F),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            
+                            screenshotInputs.forEach { input ->
+                                val filePath = input.substringAfter("file:")
+                                val actualPath = if (filePath.startsWith("urn:cid:")) {
+                                    be.heyman.android.etymoclan.GemmaTamagotchiEngine.getInstance()?.screenshotPathByCid?.get(filePath) ?: filePath
                                 } else {
-                                    "Capture d'Écran Source (cliquer pour zoomer) :"
+                                    filePath
                                 }
-                                Text(
-                                    text = titleText,
-                                    color = Color(0xFFFFD54F),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Image(
-                                    bitmap = thumbnailBitmap.asImageBitmap(),
-                                    contentDescription = "Pollen Image Thumbnail",
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(180.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .border(1.dp, Color.Gray.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                                        .clickable { onImageClick(file) },
-                                    contentScale = ContentScale.Crop
-                                )
+                                val file = File(actualPath)
+                                if (file.exists()) {
+                                    val thumbnailBitmap = remember(file) {
+                                        try {
+                                            android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                                        } catch (e: Exception) {
+                                            null
+                                        }
+                                    }
+                                    if (thumbnailBitmap != null) {
+                                        Image(
+                                            bitmap = thumbnailBitmap.asImageBitmap(),
+                                            contentDescription = "Pollen Image Thumbnail",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(180.dp)
+                                                .padding(bottom = 8.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .border(1.dp, Color.Gray.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                                .clickable { onImageClick(file) },
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

@@ -36,6 +36,8 @@ import be.heyman.android.etymoclan.ui.screens.DashboardScreen
 import be.heyman.android.etymoclan.ui.screens.MemberDetailScreen
 import be.heyman.android.etymoclan.ui.viewmodels.DashboardViewModel
 import be.heyman.android.etymoclan.ui.viewmodels.ChatViewModel
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -109,38 +111,77 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     val captchaState by gemmaEngine.captchaState.collectAsState()
 
                     if (captchaState.isRequired && captchaState.webView != null) {
-                        AlertDialog(
+                        Dialog(
                             onDismissRequest = { captchaState.onCancel?.invoke() },
-                            title = { Text("Vérification Google requise", fontWeight = FontWeight.Bold, color = Color.White) },
-                            text = {
-                                Column(modifier = Modifier.fillMaxWidth().height(450.dp)) {
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.95f)
+                                    .fillMaxHeight(0.85f)
+                                    .padding(16.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFF1E1E1E)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp)
+                                ) {
                                     Text(
-                                        text = "Veuillez résoudre le CAPTCHA Google ou valider les conditions d'utilisation pour activer le Mode IA de Google Search.",
-                                        fontSize = 12.sp,
-                                        color = Color.LightGray,
+                                        text = captchaState.title,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 18.sp,
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     )
-                                    androidx.compose.ui.viewinterop.AndroidView(
-                                        factory = {
-                                            val wv = captchaState.webView!!
-                                            (wv.parent as? android.view.ViewGroup)?.removeView(wv)
-                                            wv
-                                        },
-                                        modifier = Modifier.fillMaxSize().background(Color.White)
+                                    Text(
+                                        text = captchaState.subtitle,
+                                        fontSize = 12.sp,
+                                        color = Color.LightGray,
+                                        modifier = Modifier.padding(bottom = 12.dp)
                                     )
-                                }
-                            },
-                            confirmButton = {
-                                TextButton(onClick = { captchaState.onDone?.invoke() }) {
-                                    Text("Terminé", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { captchaState.onCancel?.invoke() }) {
-                                    Text("Annuler", color = Color.Gray)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .background(Color.White, RoundedCornerShape(8.dp))
+                                            .clip(RoundedCornerShape(8.dp))
+                                    ) {
+                                        androidx.compose.ui.viewinterop.AndroidView(
+                                            factory = {
+                                                val wv = captchaState.webView!!
+                                                (wv.parent as? android.view.ViewGroup)?.removeView(wv)
+                                                wv.layoutParams = android.view.ViewGroup.LayoutParams(
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                                )
+                                                wv.isClickable = true
+                                                wv.isFocusable = true
+                                                wv.isFocusableInTouchMode = true
+                                                wv.requestFocus()
+                                                wv
+                                            },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 16.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        TextButton(onClick = { captchaState.onCancel?.invoke() }) {
+                                            Text("Annuler", color = Color.Gray)
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        TextButton(onClick = { captchaState.onDone?.invoke() }) {
+                                            Text("Terminé", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
                                 }
                             }
-                        )
+                        }
                     }
 
                     if (modelState != ModelState.Ready) {

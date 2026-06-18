@@ -34,7 +34,8 @@ object WebScraper {
         val screenshotPath: String,
         val detectedLanguage: String,
         val consentBlocked: Boolean = false,
-        val sourceUrl: String = ""
+        val sourceUrl: String = "",
+        val ocrScreenshotPath: String = ""
     )
 
     suspend fun searchWeb(query: String): List<Pair<String, String>> = withContext(Dispatchers.IO) {
@@ -113,7 +114,15 @@ object WebScraper {
             settings.domStorageEnabled = true
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
             settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+
+            val cookieManager = android.webkit.CookieManager.getInstance()
+            cookieManager.setAcceptCookie(true)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                cookieManager.setAcceptThirdPartyCookies(webView, true)
+            }
 
             val mainHandler = Handler(Looper.getMainLooper())
             var hasResumed = false
@@ -128,6 +137,7 @@ object WebScraper {
                     }
                     mainHandler.post {
                         try {
+                            GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
                             webView.destroy()
                         } catch (e: Exception) {
                             Log.w(TAG, "Error destroying WebView", e)
@@ -145,228 +155,322 @@ object WebScraper {
 
             mainHandler.postDelayed(runnable, 30000)
 
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, urlStr: String?) {
-                    if (urlStr != null && urlStr.contains("google.com/sorry")) {
-                        Log.i(TAG, "CAPTCHA Google détecté dans le WebView. Demande de résolution à l'utilisateur...")
-                        GemmaTamagotchiEngine.getInstance()?.showCaptchaDialog(
-                            webView = webView,
-                            onDone = {
-                                view?.reload()
-                            },
-                            onCancel = {
-                                resumeOnce(Result.failure(Exception("CAPTCHA non résolu par l'utilisateur")))
+            var isConsentDialogShowing = false
+
+            fun proceedWithCapture() {
+                if (hasResumed) return
+                val finalUrl = webView.url ?: url
+                try {
+                    val jsQuery = """
+                        (function() {
+                            try {
+                                return JSON.stringify({
+                                    height: Math.max(
+                                        document.body ? document.body.scrollHeight : 0,
+                                        document.documentElement ? document.documentElement.scrollHeight : 0,
+                                        document.body ? document.body.offsetHeight : 0,
+                                        document.documentElement ? document.documentElement.offsetHeight : 0,
+                                        document.body ? document.body.clientHeight : 0,
+                                        document.documentElement ? document.documentElement.clientHeight : 0
+                                    ),
+                                    lang: document.documentElement ? document.documentElement.lang : "",
+                                    title: document.title || "",
+                                    text: document.body ? document.body.innerText.substring(0, 8000) : "",
+                                    html: document.documentElement ? document.documentElement.outerHTML.substring(0, 200000) : ""
+                                });
+                            } catch(e) {
+                                return JSON.stringify({ height: 800, lang: "", title: "", text: "", html: "" });
                             }
-                        )
-                        return
-                    }
+                        })()
+                    """.trimIndent()
 
-                    GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
-
-                    fun proceedWithCapture() {
-                        if (hasResumed) return
-                        val finalUrl = webView.url ?: url
+                    webView.evaluateJavascript(jsQuery) { jsResult ->
                         try {
-                            val jsQuery = """
-                                (function() {
-                                    try {
-                                        return JSON.stringify({
-                                            height: Math.max(
-                                                document.body ? document.body.scrollHeight : 0,
-                                                document.documentElement ? document.documentElement.scrollHeight : 0,
-                                                document.body ? document.body.offsetHeight : 0,
-                                                document.documentElement ? document.documentElement.offsetHeight : 0,
-                                                document.body ? document.body.clientHeight : 0,
-                                                document.documentElement ? document.documentElement.clientHeight : 0
-                                            ),
-                                            lang: document.documentElement ? document.documentElement.lang : "",
-                                            title: document.title || "",
-                                            text: document.body ? document.body.innerText.substring(0, 8000) : "",
-                                            html: document.documentElement ? document.documentElement.outerHTML.substring(0, 200000) : ""
-                                        });
-                                    } catch(e) {
-                                        return JSON.stringify({ height: 800, lang: "", title: "", text: "", html: "" });
-                                    }
-                                })()
-                            """.trimIndent()
+                            var heightDp = 800
+                            var htmlLang = ""
+                            var title = ""
+                            var sampleText = ""
+                            var pageHtml = ""
 
-                            webView.evaluateJavascript(jsQuery) { jsResult ->
+                            if (jsResult != null && jsResult != "null") {
                                 try {
-                                    var heightDp = 800
-                                    var htmlLang = ""
-                                    var title = ""
-                                    var sampleText = ""
-                                    var pageHtml = ""
-
-                                    if (jsResult != null && jsResult != "null") {
-                                        try {
-                                            val unescaped = org.json.JSONTokener(jsResult).nextValue() as String
-                                            val json = org.json.JSONObject(unescaped)
-                                            heightDp = json.optInt("height", 800)
-                                            htmlLang = json.optString("lang", "").lowercase()
-                                            title = json.optString("title", "")
-                                            sampleText = json.optString("text", "")
-                                            pageHtml = json.optString("html", "")
-                                        } catch (e: Exception) {
-                                            Log.w(TAG, "Error decoding JS evaluation result", e)
-                                        }
-                                    }
-
-                                    val density = context.resources.displayMetrics.density
-                                    val contentWidth = 1080
-                                    val contentHeight = (heightDp * density).toInt()
-                                    Log.d(TAG, "WebView dimensions from JS: ${contentWidth}x${contentHeight} (heightDp=$heightDp)")
-
-                                    // Set limits to prevent OOM
-                                    val finalHeight = contentHeight.coerceAtMost(12000).coerceAtLeast(800)
-                                    webView.layout(0, 0, contentWidth, finalHeight)
-
-                                    // Wait 500ms for WebView to finish the layout pass and render the page before capture
-                                    Handler(Looper.getMainLooper()).postDelayed({
-                                        if (hasResumed) return@postDelayed
-                                        try {
-                                            val bitmap = Bitmap.createBitmap(contentWidth, finalHeight, Bitmap.Config.ARGB_8888)
-                                            val canvas = Canvas(bitmap)
-                                            webView.draw(canvas)
-
-                                            // Save screenshot to external directory
-                                            val screenshotDir = File(context.getExternalFilesDir(null), "screenshots")
-                                            if (!screenshotDir.exists()) {
-                                                screenshotDir.mkdirs()
-                                            }
-                                            val screenshotFile = File(screenshotDir, "screenshot_${System.currentTimeMillis()}.png")
-                                            FileOutputStream(screenshotFile).use { out ->
-                                                bitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
-                                            }
-                                            Log.d(TAG, "Screenshot saved successfully to: ${screenshotFile.absolutePath}")
-
-                                            // Perform OCR and Language ID on a background thread
-                                            Thread {
-                                                try {
-                                                    val inputImage = InputImage.fromBitmap(bitmap, 0)
-
-                                                    var detectedLang = ""
-
-                                                    if (detectedLang.isEmpty()) {
-                                                        if (htmlLang.startsWith("ja")) {
-                                                            detectedLang = "ja"
-                                                        } else if (htmlLang.startsWith("zh")) {
-                                                            detectedLang = "zh"
-                                                        } else if (htmlLang.startsWith("ko")) {
-                                                            detectedLang = "ko"
-                                                        } else if (htmlLang.isNotEmpty()) {
-                                                            detectedLang = htmlLang.substring(0, 2)
-                                                        }
-                                                    }
-
-                                                    if (detectedLang == "en" || detectedLang.isEmpty() || detectedLang == "un") {
-                                                        if (sampleText.isNotEmpty()) {
-                                                            val languageIdentifier = LanguageIdentification.getClient()
-                                                            val task = languageIdentifier.identifyLanguage(sampleText)
-                                                            val langResult = Tasks.await(task)
-                                                            if (langResult != "und" && langResult.isNotEmpty()) {
-                                                                detectedLang = langResult
-                                                            }
-                                                        }
-                                                    }
-
-                                                    if (detectedLang.isEmpty()) {
-                                                        detectedLang = "en"
-                                                    }
-
-                                                    Log.i(TAG, "Detected language: $detectedLang")
-
-                                                    val recognizer = when (detectedLang) {
-                                                        "ja" -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-                                                        "zh" -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-                                                        "ko" -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-                                                        "hi", "ne", "mr" -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
-                                                        else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                                                    }
-
-                                                    val ocrTask = recognizer.process(inputImage)
-                                                    val ocrResult = Tasks.await(ocrTask)
-                                                    val fullText = ocrResult.text
-                                                    Log.d(TAG, "OCR complete. Text length: ${fullText.length}")
-
-                                                    val rawText = if (fullText.trim().isNotEmpty()) fullText else sampleText
-                                                    val isConsent = isConsentWall(finalUrl, rawText, pageHtml)
-                                                    val cleanedText = if (isConsent) "" else cleanWebpageText(rawText)
-
-                                                    if (isConsent) {
-                                                        Log.w(TAG, "CONSENT WALL détecté — l'OCR ne contient PAS le vrai texte AI Mode. URL=$finalUrl")
-                                                        val dbgDir = File(context.getExternalFilesDir(null), "debug_consent")
-                                                        dbgDir.mkdirs()
-                                                        val dbgFile = File(dbgDir, "consent_${System.currentTimeMillis()}.html")
-                                                        dbgFile.writeText(pageHtml)
-                                                        Log.w(TAG, "HTML de consentement dumpé : ${dbgFile.absolutePath} (${pageHtml.length} chars)")
-                                                        // logcat tronque ~4000 chars/ligne -> on logge par tranches (6 max)
-                                                        pageHtml.chunked(3500).take(6).forEachIndexed { i, c -> Log.w(TAG, "CONSENT_HTML[$i]: $c") }
-                                                    }
-
-                                                    resumeOnce(Result.success(ScrapeResult(
-                                                        extractedText = cleanedText,
-                                                        screenshotPath = screenshotFile.absolutePath,
-                                                        detectedLanguage = detectedLang,
-                                                        consentBlocked = isConsent,
-                                                        sourceUrl = url
-                                                    )))
-                                                } catch (e: Exception) {
-                                                    Log.e(TAG, "OCR/LanguageID background task failed", e)
-                                                    resumeOnce(Result.failure(e))
-                                                }
-                                            }.start()
-                                        } catch (e: Exception) {
-                                            Log.e(TAG, "Error drawing screenshot", e)
-                                            resumeOnce(Result.failure(e))
-                                        }
-                                    }, 500)
+                                    val unescaped = org.json.JSONTokener(jsResult).nextValue() as String
+                                    val json = org.json.JSONObject(unescaped)
+                                    heightDp = json.optInt("height", 800)
+                                    htmlLang = json.optString("lang", "").lowercase()
+                                    title = json.optString("title", "")
+                                    sampleText = json.optString("text", "")
+                                    pageHtml = json.optString("html", "")
                                 } catch (e: Exception) {
-                                    Log.e(TAG, "Error processing JS evaluation result", e)
-                                    resumeOnce(Result.failure(e))
+                                    Log.w(TAG, "Error decoding JS evaluation result", e)
                                 }
                             }
+
+                            val density = context.resources.displayMetrics.density
+                            val contentWidth = 1080
+                            val contentHeight = (heightDp * density).toInt()
+                            Log.d(TAG, "WebView dimensions from JS: ${contentWidth}x${contentHeight} (heightDp=$heightDp)")
+
+                            // Set limits to prevent OOM
+                            val finalHeight = contentHeight.coerceAtMost(12000).coerceAtLeast(800)
+                            webView.layout(0, 0, contentWidth, finalHeight)
+
+                            // Wait 500ms for WebView to finish the layout pass and render the page before capture
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                if (hasResumed) return@postDelayed
+                                try {
+                                    val bitmap = Bitmap.createBitmap(contentWidth, finalHeight, Bitmap.Config.ARGB_8888)
+                                    val canvas = Canvas(bitmap)
+                                    webView.draw(canvas)
+
+                                    // Save screenshot to external directory
+                                    val screenshotDir = File(context.getExternalFilesDir(null), "screenshots")
+                                    if (!screenshotDir.exists()) {
+                                        screenshotDir.mkdirs()
+                                    }
+                                    val screenshotFile = File(screenshotDir, "screenshot_${System.currentTimeMillis()}.png")
+                                    FileOutputStream(screenshotFile).use { out ->
+                                        bitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
+                                    }
+                                    Log.d(TAG, "Screenshot saved successfully to: ${screenshotFile.absolutePath}")
+
+                                    // Perform OCR and Language ID on a background thread
+                                    Thread {
+                                        try {
+                                            val inputImage = InputImage.fromBitmap(bitmap, 0)
+
+                                            var detectedLang = ""
+
+                                            if (detectedLang.isEmpty()) {
+                                                if (htmlLang.startsWith("ja")) {
+                                                    detectedLang = "ja"
+                                                } else if (htmlLang.startsWith("zh")) {
+                                                    detectedLang = "zh"
+                                                } else if (htmlLang.startsWith("ko")) {
+                                                    detectedLang = "ko"
+                                                } else if (htmlLang.isNotEmpty()) {
+                                                    detectedLang = htmlLang.substring(0, 2)
+                                                }
+                                            }
+
+                                            if (detectedLang == "en" || detectedLang.isEmpty() || detectedLang == "un") {
+                                                if (sampleText.isNotEmpty()) {
+                                                    val languageIdentifier = LanguageIdentification.getClient()
+                                                    val task = languageIdentifier.identifyLanguage(sampleText)
+                                                    val langResult = Tasks.await(task)
+                                                    if (langResult != "und" && langResult.isNotEmpty()) {
+                                                        detectedLang = langResult
+                                                    }
+                                                }
+                                            }
+
+                                            if (detectedLang.isEmpty()) {
+                                                detectedLang = "en"
+                                            }
+
+                                            Log.i(TAG, "Detected language: $detectedLang")
+
+                                            val recognizer = when (detectedLang) {
+                                                "ja" -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+                                                "zh" -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+                                                "ko" -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+                                                "hi", "ne", "mr" -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
+                                                else -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                                            }
+
+                                            val ocrTask = recognizer.process(inputImage)
+                                            val ocrResult = Tasks.await(ocrTask)
+                                            val fullText = ocrResult.text
+                                            Log.d(TAG, "OCR complete. Text length: ${fullText.length}")
+
+                                            val rawText = if (fullText.trim().isNotEmpty()) fullText else sampleText
+                                            val isConsent = isConsentWall(finalUrl, rawText, pageHtml)
+                                            val cleanedText = if (isConsent) "" else cleanWebpageText(rawText)
+
+                                            var ocrScreenshotPath = ""
+                                            if (!isConsent && fullText.trim().isNotEmpty()) {
+                                                try {
+                                                    val ocrBitmap = drawOcrOverlay(bitmap, ocrResult)
+                                                    val ocrFile = File(screenshotDir, "screenshot_ocr_${System.currentTimeMillis()}.png")
+                                                    FileOutputStream(ocrFile).use { out ->
+                                                        ocrBitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
+                                                    }
+                                                    ocrScreenshotPath = ocrFile.absolutePath
+                                                    Log.d(TAG, "OCR Screenshot overlay saved successfully to: $ocrScreenshotPath")
+                                                } catch (e: Exception) {
+                                                    Log.e(TAG, "Error drawing OCR overlay", e)
+                                                }
+                                            }
+
+                                            if (isConsent) {
+                                                Log.w(TAG, "CONSENT WALL détecté — l'OCR ne contient PAS le vrai texte AI Mode. URL=$finalUrl")
+                                                val dbgDir = File(context.getExternalFilesDir(null), "debug_consent")
+                                                dbgDir.mkdirs()
+                                                val dbgFile = File(dbgDir, "consent_${System.currentTimeMillis()}.html")
+                                                dbgFile.writeText(pageHtml)
+                                                Log.w(TAG, "HTML de consentement dumpé : ${dbgFile.absolutePath} (${pageHtml.length} chars)")
+                                                // logcat tronque ~4000 chars/ligne -> on logge par tranches (6 max)
+                                                pageHtml.chunked(3500).take(6).forEachIndexed { i, c -> Log.w(TAG, "CONSENT_HTML[$i]: $c") }
+                                            }
+
+                                            resumeOnce(Result.success(ScrapeResult(
+                                                extractedText = cleanedText,
+                                                screenshotPath = screenshotFile.absolutePath,
+                                                detectedLanguage = detectedLang,
+                                                consentBlocked = isConsent,
+                                                sourceUrl = url,
+                                                ocrScreenshotPath = ocrScreenshotPath
+                                            )))
+                                        } catch (e: Exception) {
+                                            Log.e(TAG, "OCR/LanguageID background task failed", e)
+                                            resumeOnce(Result.failure(e))
+                                        }
+                                    }.start()
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error drawing screenshot", e)
+                                    resumeOnce(Result.failure(e))
+                                }
+                            }, 500)
                         } catch (e: Exception) {
-                            Log.e(TAG, "WebView rendering screenshot failed", e)
+                            Log.e(TAG, "Error processing JS evaluation result", e)
                             resumeOnce(Result.failure(e))
                         }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "WebView rendering screenshot failed", e)
+                    resumeOnce(Result.failure(e))
+                }
+            }
 
-                    val urlStrStr = urlStr ?: ""
-                    if (urlStrStr.contains("udm=50")) {
-                        val startTime = System.currentTimeMillis()
-                        // Stabilisation check for AI mode (Gemini streaming output)
-                        // Interval of 600ms is used because it corresponds to the typical pause between Gemini streaming chunks.
-                        fun checkStabilization(lastLength: Int) {
-                            if (hasResumed) return
-                            val elapsed = System.currentTimeMillis() - startTime
-                            if (elapsed >= 4000L) { // Plafond de 4s
-                                Log.d(TAG, "Plafond de stabilisation de 4s atteint pour udm=50. Capture en cours.")
+            fun startCaptureSequence() {
+                val finalUrl = webView.url ?: url
+                if (finalUrl.contains("udm=50")) {
+                    val startTime = System.currentTimeMillis()
+                    // Stabilisation check for AI mode (Gemini streaming output)
+                    fun checkStabilization(lastLength: Int) {
+                        if (hasResumed) return
+                        val elapsed = System.currentTimeMillis() - startTime
+                        if (elapsed >= 15000L) { // Plafond de 15s
+                            Log.d(TAG, "Plafond de stabilisation de 15s atteint pour udm=50. Capture en cours.")
+                            proceedWithCapture()
+                            return
+                        }
+                        webView.evaluateJavascript("(function() { return document.body ? document.body.innerText.length : 0; })()") { resStr ->
+                            if (hasResumed) return@evaluateJavascript
+                            val currentLength = resStr?.toIntOrNull() ?: 0
+                            if (lastLength >= 0 && currentLength == lastLength && elapsed >= 5000L) {
+                                Log.d(TAG, "Stabilisation de document.body.innerText.length atteinte à $currentLength. Capture en cours.")
                                 proceedWithCapture()
-                                return
-                            }
-                            webView.evaluateJavascript("(function() { return document.body ? document.body.innerText.length : 0; })()") { resStr ->
-                                if (hasResumed) return@evaluateJavascript
-                                val currentLength = resStr?.toIntOrNull() ?: 0
-                                if (lastLength >= 0 && currentLength == lastLength) {
-                                    Log.d(TAG, "Stabilisation de document.body.innerText.length atteinte à $currentLength. Capture en cours.")
-                                    proceedWithCapture()
-                                } else {
-                                    Handler(Looper.getMainLooper()).postDelayed({
-                                        checkStabilization(currentLength)
-                                    }, 600L) // Intervalle de ~600 ms entre deux mesures
-                                }
+                            } else {
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    checkStabilization(currentLength)
+                                }, 600L) // Intervalle de ~600 ms entre deux mesures
                             }
                         }
-                        checkStabilization(-1)
-                    } else {
-                        val delayMs = if (urlStrStr.contains("google.com/search")) 6000L else 2000L
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            if (hasResumed) return@postDelayed
-                            proceedWithCapture()
-                        }, delayMs)
                     }
+                    checkStabilization(-1)
+                } else {
+                    val delayMs = if (finalUrl.contains("google.com/search")) 6000L else 2000L
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (hasResumed) return@postDelayed
+                        proceedWithCapture()
+                    }, delayMs)
+                }
+            }
 
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, urlStr: String?) {
+                    val urlLower = (urlStr ?: "").lowercase()
+                    val isGoogle = urlLower.contains("google.") || urlLower.contains("consent.google")
+                    val isGoogleSorry = urlLower.contains("google.com/sorry")
+
+                    if (isGoogle || isGoogleSorry) {
+                        val jsCheckConsent = """
+                            (function() {
+                                try {
+                                    var text = document.body ? document.body.innerText : "";
+                                    var html = document.documentElement ? document.documentElement.outerHTML : "";
+                                    var url = window.location.href.toLowerCase();
+                                    
+                                    // If we are on a consent subdomain/path, it's definitely a consent wall
+                                    if (url.indexOf("consent.google.") !== -1 || url.indexOf("/consent") !== -1 || url.indexOf("/sorry") !== -1) {
+                                        return true;
+                                    }
+                                    
+                                    // If we see the strict consent page headers
+                                    var hay = (text + " " + html).toLowerCase();
+                                    var strictNeedles = [
+                                        "avant d'accéder à google", "before you continue to google",
+                                        "voordat je verdergaat", "before you continue"
+                                    ];
+                                    for (var i = 0; i < strictNeedles.length; i++) {
+                                        if (hay.indexOf(strictNeedles[i]) !== -1) {
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                } catch(e) {
+                                    return false;
+                                }
+                            })()
+                        """.trimIndent()
+
+                        webView.evaluateJavascript(jsCheckConsent) { resStr ->
+                            val hasConsent = resStr == "true"
+                            if (hasConsent || isGoogleSorry) {
+                                Log.i(TAG, "Bandeau de consentement ou CAPTCHA Google détecté dans le WebView. Demande de résolution à l'utilisateur...")
+                                
+                                if (!isConsentDialogShowing) {
+                                    isConsentDialogShowing = true
+                                    // Cancel timeout callback so the user has unlimited time to resolve the dialog manually
+                                    timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+
+                                    GemmaTamagotchiEngine.getInstance()?.showCaptchaDialog(
+                                        webView = webView,
+                                        onDone = {
+                                            isConsentDialogShowing = false
+                                            GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
+                                            // Re-register the timeout callback when page is reloaded
+                                            timeoutRunnable?.let {
+                                                mainHandler.removeCallbacks(it)
+                                                mainHandler.postDelayed(it, 30000)
+                                            }
+                                            webView.reload()
+                                        },
+                                        onCancel = {
+                                            isConsentDialogShowing = false
+                                            GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
+                                            resumeOnce(Result.failure(Exception("Consentement/CAPTCHA non résolu par l'utilisateur")))
+                                        }
+                                    )
+                                } else {
+                                    Log.d(TAG, "Consent wall still detected while dialog is open. Waiting for user...")
+                                }
+                            } else {
+                                if (isConsentDialogShowing) {
+                                    Log.i(TAG, "Consent wall resolved by user inside dialog! Closing dialog and capturing page.")
+                                    isConsentDialogShowing = false
+                                    GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
+                                    timeoutRunnable?.let {
+                                        mainHandler.removeCallbacks(it)
+                                        mainHandler.postDelayed(it, 30000)
+                                    }
+                                }
+                                startCaptureSequence()
+                            }
+                        }
+                    } else {
+                        if (isConsentDialogShowing) {
+                            Log.i(TAG, "Consent wall resolved (non-Google redirect)! Closing dialog and capturing page.")
+                            isConsentDialogShowing = false
+                            GemmaTamagotchiEngine.getInstance()?.hideCaptchaDialog()
+                            timeoutRunnable?.let {
+                                mainHandler.removeCallbacks(it)
+                                mainHandler.postDelayed(it, 30000)
+                            }
+                        }
+                        startCaptureSequence()
+                    }
                 }
 
                 @Suppress("DEPRECATION")
@@ -376,6 +480,19 @@ object WebScraper {
             }
 
             Log.i(TAG, "Loading URL in WebView: $url")
+            be.heyman.android.etymoclan.GemmaTamagotchiEngine.getInstance()?.showWebDialog(
+                webView = webView,
+                title = "Robot en cours d'exploration...",
+                subtitle = "Le robot analyse la page : $url",
+                onDone = {
+                    mainHandler.post {
+                        proceedWithCapture()
+                    }
+                },
+                onCancel = {
+                    resumeOnce(Result.failure(Exception("Scraping annulé par l'utilisateur")))
+                }
+            )
             webView.loadUrl(url)
         }
     }
@@ -515,13 +632,68 @@ object WebScraper {
     private fun isConsentWall(finalUrl: String?, ocrText: String, html: String): Boolean {
         val u = (finalUrl ?: "").lowercase()
         if (u.contains("consent.google.") || u.contains("/consent")) return true
-        val needles = listOf(
-            "avant d'accéder à google", "voordat je verdergaat", "tout accepter",
-            "alles accepteren", "accept all", "reject all", "before you continue",
-            "we use cookies", "nous utilisons des cookies", "gérer les cookies"
+        
+        val strictNeedles = listOf(
+            "avant d'accéder à google",
+            "before you continue to google",
+            "voordat je verdergaat",
+            "before you continue"
         )
-        val hay = (ocrText + " " + html).lowercase()
-        return needles.any { hay.contains(it) }
+        val lowerHay = (ocrText + " " + html).lowercase()
+        return strictNeedles.any { lowerHay.contains(it) }
+    }
+
+    private fun drawOcrOverlay(original: Bitmap, ocrResult: com.google.mlkit.vision.text.Text): Bitmap {
+        val bitmap = original.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(bitmap)
+        
+        val rectPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#3000FF00") // Semi-transparent green
+            style = android.graphics.Paint.Style.FILL
+        }
+        
+        val borderPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#FF00FF00") // Green border
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 2f
+        }
+        
+        val textPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 10f
+            typeface = android.graphics.Typeface.MONOSPACE
+            isFakeBoldText = true
+        }
+        
+        val textBgPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#E000FFD0") // Cyan background
+            style = android.graphics.Paint.Style.FILL
+        }
+        
+        for (block in ocrResult.textBlocks) {
+            val box = block.boundingBox ?: continue
+            
+            // Draw block bounds
+            canvas.drawRect(box, rectPaint)
+            canvas.drawRect(box, borderPaint)
+            
+            // Draw a small label with the recognized text
+            val labelText = block.text.take(35).replace("\n", " ")
+            if (labelText.isNotEmpty()) {
+                val textWidth = textPaint.measureText(labelText)
+                val textHeight = 12f
+                val labelRect = android.graphics.RectF(
+                    box.left.toFloat(),
+                    (box.top - textHeight).coerceAtLeast(0f),
+                    (box.left + textWidth + 8f).coerceAtMost(original.width.toFloat()),
+                    box.top.toFloat()
+                )
+                canvas.drawRect(labelRect, textBgPaint)
+                canvas.drawText(labelText, box.left.toFloat() + 4f, box.top.toFloat() - 3f, textPaint)
+            }
+        }
+        
+        return bitmap
     }
 
     // TODO: quand isConsentWall est vrai, injecter du JS pour cliquer "Tout accepter"

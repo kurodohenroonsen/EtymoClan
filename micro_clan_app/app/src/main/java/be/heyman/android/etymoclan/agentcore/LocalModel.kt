@@ -13,8 +13,11 @@ import android.graphics.RadialGradient
 import android.os.Build
 import android.util.Log
 import be.heyman.android.etymoclan.GemmaTamagotchiEngine
+import be.heyman.android.etymoclan.LLMTruncateException
+import be.heyman.android.etymoclan.cleanResponseAndDetectLoop
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,14 +46,27 @@ class LiteRtModel(private val context: Context) : LocalModel {
         return withContext(Dispatchers.IO) {
             try {
                 val config = ConversationConfig(
-                    systemInstruction = Contents.of(systemPrompt)
+                    systemInstruction = Contents.of(systemPrompt),
+                    samplerConfig = SamplerConfig(40, 0.95, 0.0, 0)
                 )
                 val conv = engine.createConversation(config)
                 val responseBuilder = java.lang.StringBuilder()
-                conv.sendMessageAsync(userPrompt).collect { chunk ->
-                    responseBuilder.append(chunk)
+                try {
+                    conv.sendMessageAsync(userPrompt).collect { chunk ->
+                        responseBuilder.append(chunk)
+                        val partialText = responseBuilder.toString()
+                        val (cleanedText, shouldTruncate) = cleanResponseAndDetectLoop(partialText)
+                        if (shouldTruncate) {
+                            responseBuilder.setLength(0)
+                            responseBuilder.append(cleanedText)
+                            throw LLMTruncateException()
+                        }
+                    }
+                } catch (e: LLMTruncateException) {
+                    Log.i("LiteRtModel", "Inférence : boucle ou garbage détecté, réponse tronquée.")
+                } finally {
+                    conv.close()
                 }
-                conv.close()
                 responseBuilder.toString()
             } catch (e: Exception) {
                 Log.e("LiteRtModel", "Error in local LiteRT inference, falling back", e)
